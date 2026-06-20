@@ -73,7 +73,7 @@ header{position:sticky;top:0;z-index:30;background:rgba(243,237,225,.88);backdro
 .book3d .pages{position:absolute;left:9%;right:9%;top:0;bottom:0;border-radius:6px 6px 4px 4px;
   background:repeating-linear-gradient(90deg,#efe9da 0 2px,#e2dac6 2px 4px);
   box-shadow:inset 0 0 36px rgba(120,105,75,.35);clip-path:polygon(2% 3%,98% 3%,96% 100%,4% 100%)}
-.book3d .silo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:120px;color:rgba(36,31,26,.82);letter-spacing:-4px}
+.book3d .silo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-2deg);font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:clamp(40px,9vw,86px);color:rgba(36,31,26,.86);letter-spacing:2px;text-shadow:0 2px 3px rgba(120,105,75,.25)}
 .book-floor{height:40px;background:linear-gradient(#cabf a3,transparent);border-radius:50%;filter:blur(8px);margin:-10px 12% 0;opacity:.4}
 
 /* ---------- features ---------- */
@@ -153,8 +153,7 @@ body[dir=ltr] [data-en]{display:revert}
 <header>
   <div class="wrap nav">
     <a class="brand" href="#top">
-      <span class="chip"><img id="navlogo" alt="Mekapele"></span>
-      <span data-he>מקפלא</span><span data-en>Mekapele</span>
+      <span class="chip"><img id="navlogo" alt="Mekapele · מקפלא"></span>
     </a>
     <nav class="nav-links">
       <a class="hide-m" href="#how"><span data-he>איך זה עובד</span><span data-en>How it works</span></a>
@@ -186,7 +185,7 @@ body[dir=ltr] [data-en]{display:revert}
         <div class="cover l"></div>
         <div class="cover r"></div>
         <div class="pages"></div>
-        <div class="silo">♥</div>
+        <div class="silo">אהבה</div>
       </div>
       <div class="book-floor"></div>
     </div>

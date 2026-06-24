@@ -1,0 +1,32 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useStore } from "@/lib/store";
+import ConfigPanel from "@/components/ConfigPanel";
+import WorkshopTracker from "@/components/tracker/WorkshopTracker";
+import PrintExport from "@/components/PrintExport";
+
+/**
+ * Top-level router between the three views. Waits for the persisted store to
+ * rehydrate from LocalStorage before rendering, so a resumed session doesn't
+ * flash the config screen.
+ */
+export default function Home() {
+  const view = useStore((s) => s.view);
+  const pattern = useStore((s) => s.pattern);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => setHydrated(true), []);
+
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen grid place-items-center text-[var(--ink-soft)]">
+        Loading your bench…
+      </div>
+    );
+  }
+
+  if (view === "tracker" && pattern) return <WorkshopTracker />;
+  if (view === "print" && pattern) return <PrintExport />;
+  return <ConfigPanel />;
+}

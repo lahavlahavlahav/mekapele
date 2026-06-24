@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   LILOU BOOKS — design tokens
+   Identity: a bookbinder's bench. Warm paper, deep ink, one coral thread.
+   ========================================================================== */
+:root {
+  --paper: #f6f1e7;
+  --paper-2: #efe7d6;
+  --ink: #1d2433;
+  --ink-soft: #4a5468;
+  --line: #d9cdb6;
+  --coral: #e2614a;
+  --coral-deep: #c64a35;
+  --sage: #6f8f72;
+  --gold: #c79a3a;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(29, 36, 51, 0.06), 0 8px 24px rgba(29, 36, 51, 0.08);
+}
+
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: "Georgia", "Times New Roman", ui-serif, serif;
+  letter-spacing: -0.01em;
+}
+.tabular { font-variant-numeric: tabular-nums; }
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+:where(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff; color: #000; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .print-table { width: 100%; border-collapse: collapse; }
+  .print-table th, .print-table td {
+    border: 1px solid #000; padding: 4px 8px; font-size: 11px; text-align: left;
+  }
+  .print-table thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+}
+.print-only { display: none; }

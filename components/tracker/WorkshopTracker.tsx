@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import FocusCard from "./FocusCard";
 import ProgressBar from "./ProgressBar";
 import ImagePreview from "./ImagePreview";
+import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 
 /**
  * Mode 2 — Interactive Digital Tracker.
@@ -67,6 +68,13 @@ export default function WorkshopTracker() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportPatternPdf(pattern, "תבנית")}
+            className="text-sm px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: "var(--line)" }}
+          >
+            ייצוא PDF
+          </button>
           <button
             onClick={() => setView("print")}
             className="text-sm px-3 py-1.5 rounded-lg border"

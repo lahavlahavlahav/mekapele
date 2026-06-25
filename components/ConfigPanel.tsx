@@ -8,6 +8,7 @@ import type { FoldingMode, ReadingDirection, FoldingPattern } from "@/lib/types"
 import Field from "./ui/Field";
 import { useAuth } from "./AuthProvider";
 import { LoginGate, UserBadge } from "./LoginGate";
+import { savePattern } from "@/lib/firestore/patterns";
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular";
@@ -36,6 +37,23 @@ export default function ConfigPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGate, setShowGate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const onSave = async () => {
+    if (!user || !pattern) return;
+    setSaving(true);
+    try {
+      const name =
+        prompt("שם לתבנית:", "תבנית קיפול") || "תבנית קיפול";
+      await savePattern(user.uid, name, pattern);
+      setSaved(true);
+    } catch {
+      setError("השמירה נכשלה. נסו שוב.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const onFile = (f: File | null) => {
     setError(null);
@@ -138,6 +156,13 @@ export default function ConfigPanel() {
             הפכו תמונה לתבנית קיפול, קיפול אחר קיפול.
           </p>
         </div>
+        <button
+          onClick={() => setView("patterns")}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: "var(--line)" }}
+        >
+          התבניות שלי
+        </button>
         <UserBadge />
       </header>
 
@@ -284,6 +309,16 @@ export default function ConfigPanel() {
             style={{ borderColor: "var(--line)" }}
           >
             המשך
+          </button>
+        )}
+        {pattern && user && (
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="px-5 rounded-[var(--radius)] font-semibold text-white disabled:opacity-60"
+            style={{ background: "var(--sage)" }}
+          >
+            {saving ? "שומר…" : saved ? "✓ נשמר" : "שמירה בענן"}
           </button>
         )}
       </div>

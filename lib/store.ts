@@ -20,7 +20,7 @@ export const DEFAULT_CONFIG: BookConfig = {
   direction: "RTL",
 };
 
-export type AppView = "config" | "tracker" | "print";
+export type AppView = "config" | "tracker" | "print" | "patterns";
 
 interface AppState {
   config: BookConfig;

@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import ConfigPanel from "@/components/ConfigPanel";
 import WorkshopTracker from "@/components/tracker/WorkshopTracker";
 import PrintExport from "@/components/PrintExport";
+import MyPatterns from "@/components/MyPatterns";
 
 /**
  * Top-level router between the three views. Waits for the persisted store to
@@ -28,5 +29,6 @@ export default function Home() {
 
   if (view === "tracker" && pattern) return <WorkshopTracker />;
   if (view === "print" && pattern) return <PrintExport />;
+  if (view === "patterns") return <MyPatterns />;
   return <ConfigPanel />;
 }

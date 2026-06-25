@@ -13,9 +13,9 @@ export interface BookConfig {
 
 /**
  * A single recorded mark on a page, expressed in physical centimeters from
- * the top of the page. For MMF there are exactly two (start/end). For
- * Cut & Fold there is an even number of values forming [cutStart, cutEnd, ...]
- * pairs.
+ * the top of the page. For Advanced MMF each leaf carries exactly ONE black
+ * segment → two marks [top, bottom]. For Cut & Fold there is an even number
+ * of values forming [cutStart, cutEnd, ...] pairs, all on the same leaf.
  */
 export interface PageMeasurement {
   /** 1-based physical sheet/leaf number. */

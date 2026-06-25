@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
-  title: "Lilou Books — Book Folding Studio",
-  description: "Turn an image into a fold-by-fold book folding pattern.",
+  title: "Lilou Books — סטודיו לקיפול ספרים",
+  description: "הפכו תמונה לתבנית קיפול ספר, קיפול אחר קיפול.",
 };
 
 export const viewport: Viewport = {
@@ -18,8 +19,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="he" dir="rtl">
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

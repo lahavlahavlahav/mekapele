@@ -1,0 +1,66 @@
+rules_version = '2';
+
+// =============================================================================
+// FIRESTORE SECURITY RULES — Lilou Books SaaS
+// -----------------------------------------------------------------------------
+// Principles:
+//   • A user may read/write ONLY documents they own (userId == request.auth.uid).
+//   • The billing fields `credits` and `subscriptionTier` are READ-ONLY to every
+//     client. They can only be changed by the Admin SDK (server / webhooks),
+//     which bypasses these rules entirely.
+//   • Unauthenticated access is denied everywhere.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers --------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    // True if the incoming write does NOT attempt to change protected fields.
+    function billingUnchanged() {
+      return request.resource.data.credits == resource.data.credits
+        && request.resource.data.subscriptionTier == resource.data.subscriptionTier;
+    }
+
+    // ---- User profile ---------------------------------------------------
+    match /users/{userId} {
+
+      // Owner can read their own profile (to see credit balance, tier, etc.).
+      allow read: if isOwner(userId);
+
+      // The client must NEVER create or seed its own credits/tier. User docs
+      // are created server-side (Admin SDK) on first login. Deny client create.
+      allow create: if false;
+
+      // Owner may update ONLY non-billing fields (e.g. display preferences),
+      // and only if credits + subscriptionTier are left exactly as stored.
+      allow update: if isOwner(userId)
+        && billingUnchanged();
+
+      // No client deletes of user docs.
+      allow delete: if false;
+
+      // ---- Projects (saved patterns) ----------------------------------
+      // Owned subcollection: full CRUD for the owner, scoped to their uid.
+      match /projects/{projectId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.userId == userId;
+        allow update: if isOwner(userId)
+          && resource.data.userId == userId
+          && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // ---- Default deny ---------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

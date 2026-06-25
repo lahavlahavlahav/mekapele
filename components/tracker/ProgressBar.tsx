@@ -13,7 +13,7 @@ export default function ProgressBar({ folded, total }: ProgressBarProps) {
   return (
     <div>
       <div className="flex items-baseline justify-between mb-2">
-        <span className="eyebrow">Progress</span>
+        <span className="eyebrow">התקדמות</span>
         <span className="font-display tabular text-2xl text-[var(--ink)]">
           {pct}
           <span className="text-base text-[var(--ink-soft)]">%</span>
@@ -27,7 +27,7 @@ export default function ProgressBar({ folded, total }: ProgressBarProps) {
         aria-valuenow={pct}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`${folded} of ${total} pages folded`}
+        aria-label={`${folded} מתוך ${total} עמודים קופלו`}
       >
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
@@ -43,11 +43,11 @@ export default function ProgressBar({ folded, total }: ProgressBarProps) {
       <p className="mt-2 text-sm text-[var(--ink-soft)] tabular">
         {done ? (
           <span className="text-[var(--sage)] font-semibold">
-            Finished — every page folded. 🎉
+            הסתיים — כל העמודים קופלו. 🎉
           </span>
         ) : (
           <>
-            {folded} of {total} pages folded
+            {folded} מתוך {total} עמודים קופלו
           </>
         )}
       </p>

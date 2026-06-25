@@ -31,7 +31,7 @@ export default function FocusCard({
       style={{ background: "var(--ink)", boxShadow: "var(--shadow)" }}
     >
       <p className="eyebrow" style={{ color: "rgba(246,241,231,0.6)" }}>
-        Now folding
+        מקפלים עכשיו
       </p>
       <div className="mt-1 flex items-baseline justify-center gap-3">
         <span className="font-display text-7xl sm:text-8xl text-[var(--paper)] tabular leading-none">
@@ -44,7 +44,7 @@ export default function FocusCard({
 
       {isBlank ? (
         <p className="mt-6 text-xl text-[rgba(246,241,231,0.8)]">
-          No fold on this leaf — turn the page.
+          אין קיפול בעלה זה — דפדפו הלאה.
         </p>
       ) : (
         <div className="mt-6 space-y-3">
@@ -58,11 +58,11 @@ export default function FocusCard({
                   {i + 1}
                 </span>
               )}
-              <Mark label={mode === "MMF" ? "Top" : "Cut from"} value={a} />
+              <Mark label={mode === "MMF" ? "עליון" : "גזירה מ-"} value={a} />
               {b !== null && (
                 <>
                   <span className="text-[var(--coral)] text-2xl">→</span>
-                  <Mark label={mode === "MMF" ? "Bottom" : "Cut to"} value={b} />
+                  <Mark label={mode === "MMF" ? "תחתון" : "גזירה עד"} value={b} />
                 </>
               )}
             </div>
@@ -78,7 +78,7 @@ function Mark({ label, value }: { label: string; value: number }) {
     <div className="min-w-[5.5rem]">
       <div className="font-display text-5xl sm:text-6xl text-[var(--paper)] tabular leading-none">
         {value.toFixed(1)}
-        <span className="text-xl text-[rgba(246,241,231,0.5)] ml-1">cm</span>
+        <span className="text-xl text-[rgba(246,241,231,0.5)] mr-1">ס״מ</span>
       </div>
       <div
         className="eyebrow mt-1"

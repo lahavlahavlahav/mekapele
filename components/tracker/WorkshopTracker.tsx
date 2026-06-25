@@ -32,8 +32,8 @@ export default function WorkshopTracker() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "SELECT") return;
-      if (e.key === "ArrowRight") nextPage();
-      else if (e.key === "ArrowLeft") prevPage();
+      if (e.key === "ArrowRight") prevPage();
+      else if (e.key === "ArrowLeft") nextPage();
       else if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         markCurrentFolded();
@@ -59,10 +59,10 @@ export default function WorkshopTracker() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-7 w-auto" />
           <div className="leading-tight">
-            <p className="eyebrow">Workshop Mode</p>
+            <p className="eyebrow">מצב סדנה</p>
             <p className="text-sm font-semibold">
-              {pattern.config.totalPages} pages · {pattern.config.direction} ·{" "}
-              {pattern.config.mode === "MMF" ? "Measure-Mark-Fold" : "Cut & Fold"}
+              {pattern.config.totalPages} עמודים · {pattern.config.direction} ·{" "}
+              {pattern.config.mode === "MMF" ? "סימון וקיפול" : "גזירה וקיפול"}
             </p>
           </div>
         </div>
@@ -72,14 +72,14 @@ export default function WorkshopTracker() {
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--line)" }}
           >
-            Print view
+            תצוגת הדפסה
           </button>
           <button
             onClick={() => setView("config")}
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--line)" }}
           >
-            Settings
+            הגדרות
           </button>
         </div>
       </header>
@@ -103,13 +103,13 @@ export default function WorkshopTracker() {
                 : { background: "var(--coral)", color: "#fff" }
             }
           >
-            {isFolded ? "✓ Folded — tap to undo" : "Mark page folded"}
+            {isFolded ? "✓ קופל — הקישו לביטול" : "סמנו עמוד כמקופל"}
           </button>
 
           {/* Desktop nav (mobile uses sticky bar below) */}
           <div className="hidden sm:flex items-center justify-between mt-4 gap-3">
             <NavButton onClick={prevPage} disabled={atStart}>
-              ← Previous
+              → הקודם
             </NavButton>
             <PageJump
               current={currentPage}
@@ -117,7 +117,7 @@ export default function WorkshopTracker() {
               onJump={goToPage}
             />
             <NavButton onClick={nextPage} disabled={atEnd}>
-              Next →
+              הבא ←
             </NavButton>
           </div>
         </section>
@@ -140,7 +140,7 @@ export default function WorkshopTracker() {
               onClick={resetProgress}
               className="mt-4 text-sm text-[var(--ink-soft)] underline underline-offset-2"
             >
-              Reset progress
+              איפוס התקדמות
             </button>
           </div>
         </aside>
@@ -152,14 +152,14 @@ export default function WorkshopTracker() {
         style={{ borderColor: "var(--line)", background: "var(--paper)" }}
       >
         <NavButton onClick={prevPage} disabled={atStart}>
-          ←
+          →
         </NavButton>
         <div className="flex-1 text-center font-display tabular text-lg">
           {currentPage}
           <span className="text-[var(--ink-soft)] text-sm"> / {totalLeaves}</span>
         </div>
         <NavButton onClick={nextPage} disabled={atEnd}>
-          →
+          ←
         </NavButton>
       </nav>
     </div>
@@ -198,7 +198,7 @@ function PageJump({
 }) {
   return (
     <label className="flex items-center gap-2 text-sm text-[var(--ink-soft)]">
-      Page
+      עמוד
       <input
         type="number"
         min={1}

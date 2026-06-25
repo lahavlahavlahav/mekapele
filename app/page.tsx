@@ -21,7 +21,7 @@ export default function Home() {
   if (!hydrated) {
     return (
       <div className="min-h-screen grid place-items-center text-[var(--ink-soft)]">
-        Loading your bench…
+        טוען את שולחן העבודה שלך…
       </div>
     );
   }

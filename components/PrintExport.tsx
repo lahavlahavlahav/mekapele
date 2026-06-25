@@ -11,9 +11,9 @@ export default function PrintExport() {
   const maxMarks = pages.reduce((m, p) => Math.max(m, p.marksCm.length), 0);
   const headers =
     config.mode === "MMF"
-      ? ["Page", "Top (cm)", "Bottom (cm)"]
-      : ["Page", ...Array.from({ length: maxMarks }, (_, i) =>
-          i % 2 === 0 ? `Cut ${i / 2 + 1} from` : `to`
+      ? ["עמוד", "עליון (ס״מ)", "תחתון (ס״מ)"]
+      : ["עמוד", ...Array.from({ length: maxMarks }, (_, i) =>
+          i % 2 === 0 ? `גזירה ${i / 2 + 1} מ-` : `עד`
         )];
 
   return (
@@ -25,14 +25,14 @@ export default function PrintExport() {
           className="text-sm px-3 py-1.5 rounded-lg border"
           style={{ borderColor: "var(--line)" }}
         >
-          ← Back to tracker
+          → חזרה למעקב
         </button>
         <button
           onClick={() => window.print()}
           className="px-4 py-2 rounded-lg font-semibold text-white"
           style={{ background: "var(--coral)" }}
         >
-          Print / Save PDF
+          הדפסה / שמירה כ-PDF
         </button>
       </div>
 
@@ -41,11 +41,11 @@ export default function PrintExport() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-12 w-auto" />
         <div>
-          <h1 className="font-display text-xl">Book Folding Pattern</h1>
+          <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
           <p className="text-sm text-[var(--ink-soft)] tabular">
-            {config.totalPages} pages · {pages.length} leaves · Page height{" "}
-            {config.pageHeightCm} cm ·{" "}
-            {config.mode === "MMF" ? "Measure-Mark-Fold" : `Cut & Fold (min tab ${config.minTabSizeMm} mm)`}{" "}
+            {config.totalPages} עמודים · {pages.length} עלים · גובה עמוד{" "}
+            {config.pageHeightCm} ס״מ ·{" "}
+            {config.mode === "MMF" ? "סימון וקיפול" : `גזירה וקיפול (לשונית מינ׳ ${config.minTabSizeMm} מ״מ)`}{" "}
             · {config.direction}
           </p>
         </div>
@@ -77,7 +77,7 @@ export default function PrintExport() {
                   style={{ borderColor: "var(--line)" }}
                   colSpan={headers.length - 1}
                 >
-                  — no fold —
+                  — אין קיפול —
                 </td>
               ) : (
                 Array.from({ length: headers.length - 1 }, (_, i) => (

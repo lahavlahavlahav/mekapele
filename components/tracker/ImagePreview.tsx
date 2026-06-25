@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { ReadingDirection } from "@/lib/types";
-import { pageToSliceIndex, sliceBounds } from "@/lib/algorithm";
+import { orderColumnsByDirection, sampleColumnBounds } from "@/lib/algorithm";
 
 interface ImagePreviewProps {
   thumbnail: string | null;
@@ -48,10 +48,11 @@ export default function ImagePreview({
       }
 
       const foldedSet = new Set(foldedPages);
+      const colOrder = orderColumnsByDirection(totalLeaves, direction);
 
       for (let page = 1; page <= totalLeaves; page++) {
-        const sliceIndex = pageToSliceIndex(page, totalLeaves, direction);
-        const { startX, endX } = sliceBounds(imgW, totalLeaves, sliceIndex);
+        const col = colOrder[page - 1];
+        const { startX, endX } = sampleColumnBounds(imgW, totalLeaves, col);
         const w = endX - startX + 1;
 
         if (foldedSet.has(page)) {

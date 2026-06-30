@@ -16,7 +16,7 @@ export const config = {
   matcher: ["/api/:path*"],
 };
 
-const DEV_ORIGINS = ["http://localhost:3000"];
+const allowedOrigins = ['http://localhost:3000', 'https://mekapele.com', 'https://www.mekapele.com'];
 
 function allowedOrigins(): string[] {
   const prod = process.env.NEXT_PUBLIC_SITE_ORIGIN;

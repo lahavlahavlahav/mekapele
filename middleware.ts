@@ -18,7 +18,7 @@ export const config = {
 
 const DEV_ORIGINS = ["http://localhost:3000"];
 
-function allowedOrigins(): string[] {
+function getAllowedOrigins(): string[] {
   const prod = process.env.NEXT_PUBLIC_SITE_ORIGIN;
   const list = prod ? [prod] : [];
   if (process.env.NODE_ENV !== "production") list.push(...DEV_ORIGINS);

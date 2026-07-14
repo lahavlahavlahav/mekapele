@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
 import { generateFoldingPattern } from "@/lib/algorithm";
-import type { FoldingMode, ReadingDirection } from "@/lib/types";
+import type { FoldingMode, FoldingPattern, ReadingDirection } from "@/lib/types";
 import Field from "./ui/Field";
 import { useAuth } from "./AuthProvider";
 import { LoginGate, UserBadge } from "./LoginGate";
 import { savePattern } from "@/lib/firestore/patterns";
+
+// Three.js touches the DOM/WebGL - never render it on the server.
+const Preview3DModal = dynamic(() => import("./Preview3D/Preview3DModal"), { ssr: false });
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular";
@@ -37,6 +41,8 @@ export default function ConfigPanel() {
   const [heightUnit, setHeightUnit] = useState<HeightUnit>("cm");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [preview3D, setPreview3D] = useState<{ pattern: FoldingPattern; coverImageUrl: string | null } | null>(null);
+  const [busy3D, setBusy3D] = useState(false);
 
   const onSave = async () => {
     if (!user || !pattern) return;
@@ -105,6 +111,26 @@ export default function ConfigPanel() {
       setError(e instanceof Error ? e.message : "יצירת התבנית נכשלה. נסו שוב.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Free, no-sign-in-required 3D preview - lets people see the shape before
+  // committing to generating/downloading the real thing.
+  const onPreview3D = async () => {
+    setError(null);
+    if (!validate() || !file) return;
+    setBusy3D(true);
+    try {
+      const [grid, thumb] = await Promise.all([
+        extractPixelGrid(file),
+        makeThumbnail(file),
+      ]);
+      const pattern = generateFoldingPattern(grid, config);
+      setPreview3D({ pattern, coverImageUrl: thumb });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "תצוגת התלת-ממד נכשלה. נסו שוב.");
+    } finally {
+      setBusy3D(false);
     }
   };
 
@@ -394,12 +420,13 @@ export default function ConfigPanel() {
 
         <button
           type="button"
-          disabled
-          title="תצוגה תלת-ממדית - בקרוב"
-          className="px-5 rounded-[var(--radius)] font-semibold border opacity-50 cursor-not-allowed"
+          onClick={onPreview3D}
+          disabled={busy3D}
+          title="תצוגה מקדימה תלת-ממדית - חינם, לא דורש התחברות"
+          className="px-5 rounded-[var(--radius)] font-semibold border disabled:opacity-60"
           style={{ borderColor: "var(--line)" }}
         >
-          תצוגת 3D (בקרוב)
+          {busy3D ? "מכין תצוגה…" : "תצוגת 3D"}
         </button>
 
         {pattern && (
@@ -427,6 +454,14 @@ export default function ConfigPanel() {
         <div className="mt-5">
           <LoginGate />
         </div>
+      )}
+
+      {preview3D && (
+        <Preview3DModal
+          pattern={preview3D.pattern}
+          coverImageUrl={preview3D.coverImageUrl}
+          onClose={() => setPreview3D(null)}
+        />
       )}
     </div>
   );

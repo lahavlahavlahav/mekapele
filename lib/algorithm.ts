@@ -114,6 +114,32 @@ export function computeOtsuThreshold(luminance: Uint8ClampedArray): number {
   return threshold;
 }
 
+/** Fraction of pixels at or under `threshold` (i.e. counted as "black"). */
+function blackFraction(luminance: Uint8ClampedArray, threshold: number): number {
+  if (luminance.length === 0) return 0;
+  let black = 0;
+  for (let i = 0; i < luminance.length; i++) {
+    if (luminance[i] <= threshold) black++;
+  }
+  return black / luminance.length;
+}
+
+/**
+ * Pick the effective black/white threshold. Otsu's method can degenerate on
+ * unusual images (near-solid colors, heavy JPEG noise, a scan with almost no
+ * dark content) and pick a cutoff that classifies almost everything - or
+ * almost nothing - as black. Either way every leaf ends up blank or fully
+ * "open", so the pattern shows no picture at all. Guard against that by
+ * falling back to the fixed threshold whenever Otsu's result is degenerate.
+ */
+export function pickThreshold(grid: PixelGrid, autoThreshold: boolean): number {
+  if (!autoThreshold) return DEFAULT_BLACK_THRESHOLD;
+  const otsu = computeOtsuThreshold(grid.luminance);
+  const fraction = blackFraction(grid.luminance, otsu);
+  if (fraction < 0.005 || fraction > 0.98) return DEFAULT_BLACK_THRESHOLD;
+  return otsu;
+}
+
 // ---------------------------------------------------------------------------
 // Column sampling
 // ---------------------------------------------------------------------------
@@ -275,9 +301,7 @@ export function generateFoldingPattern(
   const last = Math.max(config.firstPage, config.lastPage);
   const leafCount = Math.max(1, Math.floor((last - first) / 2) + 1);
 
-  const threshold = config.autoThreshold
-    ? computeOtsuThreshold(grid.luminance)
-    : DEFAULT_BLACK_THRESHOLD;
+  const threshold = pickThreshold(grid, config.autoThreshold);
 
   const { startX: cropStartX, width: cropWidth } = config.cropSides
     ? computeContentBoundsX(grid, threshold)

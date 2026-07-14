@@ -134,6 +134,21 @@ export const useStore = create<AppState>()(
         currentPage: s.currentPage,
         foldedPages: s.foldedPages,
       }),
+      // A user's localStorage may hold a config saved by an older version of
+      // the app that predates fields like verticalSpacingCm/cropSides/
+      // autoThreshold/precisionMm. Zustand's default merge replaces `config`
+      // wholesale, so those fields would come back `undefined` and silently
+      // break the algorithm (NaN measurements) and any UI that calls
+      // `.toFixed()` on them. Backfill missing fields from DEFAULT_CONFIG
+      // instead of trusting the persisted object to be complete.
+      merge: (persisted, current) => {
+        const persistedState = (persisted ?? {}) as Partial<AppState>;
+        return {
+          ...current,
+          ...persistedState,
+          config: { ...DEFAULT_CONFIG, ...persistedState.config },
+        };
+      },
     }
   )
 );

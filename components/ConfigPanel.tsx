@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
 import { generateFoldingPattern } from "@/lib/algorithm";
-import type { FoldingMode, ReadingDirection, FoldingPattern } from "@/lib/types";
+import type { FoldingMode, ReadingDirection } from "@/lib/types";
 import Field from "./ui/Field";
 import { useAuth } from "./AuthProvider";
 import { LoginGate, UserBadge } from "./LoginGate";
@@ -14,24 +14,10 @@ const inputClass =
   "w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular";
 const inputStyle = { borderColor: "var(--line)" } as const;
 
-/** Build a deliberately low-res, watermarked-feeling preview for guests. */
-function downscalePattern(p: FoldingPattern): FoldingPattern {
-  // Keep only every Nth leaf and blur the cm precision so the guest sees the
-  // SHAPE of the result but not usable exact measurements.
-  const step = Math.max(1, Math.floor(p.pages.length / 12));
-  const pages = p.pages
-    .filter((_, i) => i % step === 0)
-    .map((pg) => ({
-      ...pg,
-      marksCm: pg.marksCm.map((m) => Math.round(m)), // whole-cm only
-    }));
-  return { ...p, pages };
-}
-
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
 export default function ConfigPanel() {
   const { config, setConfig, loadPattern, pattern, setView } = useStore();
-  const { user, getToken } = useAuth();
+  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,40 +53,25 @@ export default function ConfigPanel() {
       setError("העלו תמונה תחילה — צללית שחורה על רקע לבן עובדת הכי טוב.");
       return false;
     }
-    if (config.totalPages < 2 || config.totalPages % 2 !== 0) {
-      setError("מספר עמודי הספר חייב להיות מספר זוגי, לפחות 2.");
-      return false;
-    }
     if (config.pageHeightCm <= 0) {
       setError("גובה העמוד חייב להיות גדול מ-0.");
+      return false;
+    }
+    if (config.pageWidthCm <= 0) {
+      setError("רוחב העמוד חייב להיות גדול מ-0.");
+      return false;
+    }
+    const first = Math.min(config.firstPage, config.lastPage);
+    const last = Math.max(config.firstPage, config.lastPage);
+    if (last - first < 2) {
+      setError("טווח העמודים (מהעמוד הראשון עד האחרון) קטן מדי.");
       return false;
     }
     return true;
   }
 
-  // GUEST: local, low-res preview only (no exact measurements).
-  const onPreview = async () => {
-    setError(null);
-    setShowGate(false);
-    if (!validate() || !file) return;
-    setBusy(true);
-    try {
-      const [grid, thumb] = await Promise.all([
-        extractPixelGrid(file),
-        makeThumbnail(file),
-      ]);
-      const full = generateFoldingPattern(grid, config);
-      loadPattern(downscalePattern(full), thumb);
-      // Nudge guests toward signing in for the real thing.
-      if (!user) setShowGate(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "משהו השתבש.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // AUTHED: call the secure server route for exact measurements.
+  // Generate the real pattern locally in the browser. Requires Google sign-in,
+  // but produces the exact measurements immediately — no credits, no server.
   const onGenerate = async () => {
     setError(null);
     setShowGate(false);
@@ -111,35 +82,15 @@ export default function ConfigPanel() {
     }
     setBusy(true);
     try {
-      const token = await getToken();
-      const thumb = await makeThumbnail(file);
-      const form = new FormData();
-      form.append("image", file);
-      form.append("config", JSON.stringify(config));
-
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: form,
-      });
-
-      if (res.status === 401) {
-        setShowGate(true);
-        return;
-      }
-      if (res.status === 402) {
-        setError("נגמרו הקרדיטים. ניתן לשדרג כדי להמשיך לייצר תבניות.");
-        return;
-      }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error || "יצירת התבנית נכשלה. נסו שוב.");
-        return;
-      }
-      const data = await res.json();
-      loadPattern(data.pattern as FoldingPattern, thumb);
-    } catch {
-      setError("שגיאת רשת. בדקו את החיבור ונסו שוב.");
+      const [grid, thumb] = await Promise.all([
+        extractPixelGrid(file),
+        makeThumbnail(file),
+      ]);
+      const pattern = generateFoldingPattern(grid, config);
+      loadPattern(pattern, thumb);
+      setView("tracker");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "יצירת התבנית נכשלה. נסו שוב.");
     } finally {
       setBusy(false);
     }
@@ -210,6 +161,32 @@ export default function ConfigPanel() {
           />
         </Field>
 
+        <Field label="עמוד ראשון" hint="תחילת טווח הקיפול, למשל 41.">
+          <input
+            type="number"
+            min={1}
+            className={inputClass}
+            style={inputStyle}
+            value={config.firstPage}
+            onChange={(e) =>
+              setConfig({ firstPage: parseInt(e.target.value || "0", 10) })
+            }
+          />
+        </Field>
+
+        <Field label="עמוד אחרון" hint="סוף טווח הקיפול, למשל 360.">
+          <input
+            type="number"
+            min={1}
+            className={inputClass}
+            style={inputStyle}
+            value={config.lastPage}
+            onChange={(e) =>
+              setConfig({ lastPage: parseInt(e.target.value || "0", 10) })
+            }
+          />
+        </Field>
+
         <Field label="גובה העמוד (ס״מ)" hint="הגובה הפיזי של עמוד אחד.">
           <input
             type="number"
@@ -220,6 +197,23 @@ export default function ConfigPanel() {
             value={config.pageHeightCm}
             onChange={(e) =>
               setConfig({ pageHeightCm: parseFloat(e.target.value || "0") })
+            }
+          />
+        </Field>
+
+        <Field
+          label="רוחב הספר (ס״מ)"
+          hint="הרוחב הכולל שהתמונה תתפרס עליו על פני כל העלים. התמונה תוקטן לפי יחס הממדים שלה ותמורכז - לא תימתח."
+        >
+          <input
+            type="number"
+            min={1}
+            step={0.1}
+            className={inputClass}
+            style={inputStyle}
+            value={config.pageWidthCm}
+            onChange={(e) =>
+              setConfig({ pageWidthCm: parseFloat(e.target.value || "0") })
             }
           />
         </Field>
@@ -282,24 +276,14 @@ export default function ConfigPanel() {
       )}
 
       <div className="flex flex-wrap gap-3">
-        {/* Guest-friendly local preview (low-res, whole-cm). */}
-        <button
-          onClick={onPreview}
-          disabled={busy}
-          className="flex-1 min-w-[8rem] py-3.5 rounded-[var(--radius)] font-semibold border text-lg disabled:opacity-60"
-          style={{ borderColor: "var(--line)" }}
-        >
-          {busy ? "מעבד…" : "תצוגה מקדימה"}
-        </button>
-
-        {/* Authenticated, server-side exact generation. */}
+        {/* Single action: generate the real pattern (requires sign-in). */}
         <button
           onClick={onGenerate}
           disabled={busy}
-          className="flex-1 min-w-[8rem] py-3.5 rounded-[var(--radius)] font-semibold text-white text-lg disabled:opacity-60"
+          className="flex-1 min-w-[10rem] py-3.5 rounded-[var(--radius)] font-semibold text-white text-lg disabled:opacity-60"
           style={{ background: "var(--ink)" }}
         >
-          {busy ? "מעבד…" : "צרו תבנית מדויקת"}
+          {busy ? "מעבד…" : "צרו תבנית"}
         </button>
 
         {pattern && (

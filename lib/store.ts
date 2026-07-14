@@ -14,7 +14,10 @@ import type { BookConfig, FoldingPattern } from "./types";
 
 export const DEFAULT_CONFIG: BookConfig = {
   totalPages: 400,
+  firstPage: 41,
+  lastPage: 360,
   pageHeightCm: 21.0,
+  pageWidthCm: 15.0,
   mode: "MMF",
   minTabSizeMm: 1.0,
   direction: "RTL",

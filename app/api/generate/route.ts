@@ -118,7 +118,9 @@ export async function POST(req: NextRequest) {
     config.totalPages < 2 ||
     config.totalPages % 2 !== 0 ||
     !Number.isFinite(config.pageHeightCm) ||
-    config.pageHeightCm <= 0
+    config.pageHeightCm <= 0 ||
+    !Number.isFinite(config.pageWidthCm) ||
+    config.pageWidthCm <= 0
   ) {
     return NextResponse.json(
       { error: "Invalid book parameters." },

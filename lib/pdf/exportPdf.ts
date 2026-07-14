@@ -46,8 +46,8 @@ async function loadLogo(): Promise<{
 const HE = {
   title: "תבנית קיפול ספר",
   page: "עמוד",
-  top: "עליון (ס\u05F4מ)",
-  bottom: "תחתון (ס\u05F4מ)",
+  top: "עליון (ס״מ)",
+  bottom: "תחתון (ס״מ)",
   noFold: "— אין קיפול —",
   mmf: "סימון וקיפול",
   cut: "גזירה וקיפול",
@@ -85,7 +85,7 @@ export async function exportPatternPdf(
     doc.setTextColor(120);
     const modeLabel = config.mode === "MMF" ? "MMF" : "Cut & Fold";
     doc.text(
-      `${config.totalPages} pages | ${pages.length} leaves | ${config.pageHeightCm} cm | ${modeLabel} | ${config.direction}`,
+      `${config.totalPages} pages | ${pages.length} leaves | ${config.pageHeightCm}x${config.pageWidthCm} cm | ${modeLabel} | ${config.direction}`,
       pageW - 14,
       22,
       { align: "right" }

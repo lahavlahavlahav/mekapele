@@ -11,8 +11,8 @@ export default function PrintExport() {
   const maxMarks = pages.reduce((m, p) => Math.max(m, p.marksCm.length), 0);
   const headers =
     config.mode === "MMF"
-      ? ["עמוד", "עליון (ס״מ)", "תחתון (ס״מ)"]
-      : ["עמוד", ...Array.from({ length: maxMarks }, (_, i) =>
+      ? ["עלה", "עמוד", "עליון (ס״מ)", "תחתון (ס״מ)"]
+      : ["עלה", "עמוד", ...Array.from({ length: maxMarks }, (_, i) =>
           i % 2 === 0 ? `גזירה ${i / 2 + 1} מ-` : `עד`
         )];
 
@@ -44,7 +44,7 @@ export default function PrintExport() {
           <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
           <p className="text-sm text-[var(--ink-soft)] tabular">
             {config.totalPages} עמודים · {pages.length} עלים · גובה עמוד{" "}
-            {config.pageHeightCm} ס״מ ·{" "}
+            {config.pageHeightCm} ס״מ · רוחב {config.pageWidthCm} ס״מ ·{" "}
             {config.mode === "MMF" ? "סימון וקיפול" : `גזירה וקיפול (לשונית מינ׳ ${config.minTabSizeMm} מ״מ)`}{" "}
             · {config.direction}
           </p>
@@ -67,20 +67,23 @@ export default function PrintExport() {
         </thead>
         <tbody>
           {pages.map((p) => (
-            <tr key={p.page}>
+            <tr key={p.leaf}>
               <td className="px-3 py-1.5 border font-semibold" style={{ borderColor: "var(--line)" }}>
+                {p.leaf}
+              </td>
+              <td className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
                 {p.page}
               </td>
               {p.isBlank ? (
                 <td
                   className="px-3 py-1.5 border text-[var(--ink-soft)]"
                   style={{ borderColor: "var(--line)" }}
-                  colSpan={headers.length - 1}
+                  colSpan={headers.length - 2}
                 >
                   — אין קיפול —
                 </td>
               ) : (
-                Array.from({ length: headers.length - 1 }, (_, i) => (
+                Array.from({ length: headers.length - 2 }, (_, i) => (
                   <td key={i} className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
                     {p.marksCm[i] !== undefined ? p.marksCm[i].toFixed(1) : ""}
                   </td>

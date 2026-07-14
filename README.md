@@ -32,9 +32,21 @@ Replace `public/assets/mekapele-logo.png` with the real brand logo
   (large-type), ProgressBar (gamification), ImagePreview (slice-fill feedback).
 
 ## Algorithm notes
-- Leaves = `totalPages / 2`; image width split into that many equal columns.
+- Leaves = `floor((lastPage - firstPage) / 2) + 1`; image width split into
+  that many equal columns, one column per leaf (no separate resolution
+  search - each leaf reads its own native column 1:1).
 - **LTR:** page 1 = left-most column. **RTL:** page 1 = right-most column.
 - Each slice collapses to its darkest column so thin features survive.
-- **MMF:** first + last black pixel Y. **Cut & Fold:** every black/white
-  toggle as cut pairs; black runs thinner than Min Tab Size are dropped.
-- `cm = (pixelY / imageHeightPixels) * pageHeightCm`, rounded to 0.1.
+- **MMF:** a column's single black run becomes its [top, bottom] mark pair.
+  If a column has multiple disconnected runs, the leaf rotates through them
+  (`segments[leafIndex % segments.length]`) instead of always showing the
+  same one and dropping the rest - calibrated against reference output but
+  a best-effort heuristic for that case (see ALGORITHM_NOTES.md).
+- **Cut & Fold:** every black/white toggle as cut pairs; black runs thinner
+  than Min Tab Size are dropped.
+- The image is fit ("contain") into `pageWidthCm x pageHeightCm`, preserving
+  its aspect ratio (never stretched), and centered vertically - matching how
+  reference book-folding tools lay out the pattern:
+  `scale = min(pageWidthCm / imageWidthPx, pageHeightCm / imageHeightPx)`,
+  `cm = (pageHeightCm - imageHeightPx * scale) / 2 + pixelY * scale`,
+  rounded to 0.1.

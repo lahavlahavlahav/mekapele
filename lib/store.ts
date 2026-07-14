@@ -17,10 +17,13 @@ export const DEFAULT_CONFIG: BookConfig = {
   firstPage: 41,
   lastPage: 360,
   pageHeightCm: 21.0,
-  pageWidthCm: 15.0,
+  verticalSpacingCm: 16.0,
   mode: "MMF",
   minTabSizeMm: 1.0,
   direction: "RTL",
+  cropSides: true,
+  autoThreshold: true,
+  precisionMm: 1,
 };
 
 export type AppView = "config" | "tracker" | "print" | "patterns";

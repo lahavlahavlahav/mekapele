@@ -25,10 +25,14 @@ collapse, segment/toggle detection) run over the real source PNG.
 - **Vertical scale was wrong in kind, not just in degree.** The old code
   mapped `pixelY / imageHeightPixels * pageHeightCm` - stretching the image
   to fill the entire page height. Regression against ~500 reference points
-  showed the real mapping is a `background-size: contain` fit (preserve
-  aspect ratio, center vertically) into `pageWidthCm x pageHeightCm`. This
-  is why `pageWidthCm` was added to `BookConfig` - it wasn't in the schema
-  before, so this scaling couldn't be expressed at all.
+  showed the real mapping renders the image at a fixed height and centers
+  it within `pageHeightCm`. A screenshot of Wunderfold's own UI later
+  confirmed this directly: it has a "Vertical Spacing" slider (range roughly
+  1-16 in whatever unit it displays) that is almost certainly exactly this
+  rendered-height value - our regression-derived figure (~8.6cm for the
+  reference image) sits comfortably in that range. `BookConfig.verticalSpacingCm`
+  models this directly (replacing an earlier `pageWidthCm` field that derived
+  the same thing indirectly from an assumed physical book width).
 - **`calibrateResolution` / `countSegmentsAtResolution` were dead code.**
   Never called from `generateFoldingPattern`. The resolution they searched
   for doesn't exist in the reference behavior (which samples 1 column per
@@ -67,12 +71,71 @@ needs more reference data to pin down the exact tie-breaking.
 
 ## Known limitation: exact pixel-to-cm calibration
 
-The `pageWidthCm` field's introduction fixes the qualitative model (contain
-+ center, not stretch), but reproducing Wunderfold's numbers pixel-for-pixel
-also depends on threshold/anti-aliasing handling that isn't recoverable from
-PDF output alone. Against the reference image: mean error ~0.1cm, 84% of
-individual marks within 0.2cm, 59% exact after rounding to 0.1cm. This is a
-large improvement over the previous implementation (which was structurally
-wrong and matched close to 0%), but true pixel-parity will need calibration
+The `verticalSpacingCm` field's introduction fixes the qualitative model
+(render-at-height + center, not stretch), but reproducing Wunderfold's
+numbers pixel-for-pixel also depends on threshold/anti-aliasing handling
+that isn't fully recoverable from PDF output alone. This is a large
+improvement over the original implementation (which was structurally wrong
+and matched close to 0%), but true pixel-parity will need calibration
 against Wunderfold output on live images once the app is in front of users
 who can compare outputs side by side.
+
+Exact-leaf-match rate against the reference image, at the empirically best
+`verticalSpacingCm` (~8.8cm for this specific reference):
+
+| Config | MMF | Cut & Fold |
+|---|---|---|
+| baseline (no crop, fixed threshold) | 68/202 (34%) | 52/202 (26%) |
+| + `cropSides` | 93/202 (46%) | - |
+| + `cropSides` + `autoThreshold` | **105/202 (52%)** | **92/202 (46%)** |
+
+`cropSides` and `autoThreshold` (added after a Wunderfold UI screenshot
+surfaced them - see below) are genuine, verified improvements, not just
+guesses: turning both on very nearly doubles the Cut & Fold exact-match rate
+and pushes MMF past 50%. `autoThreshold` alone (without crop) is roughly a
+wash on this clean, high-contrast reference image, but combined with
+`cropSides` it clearly helps - the two are not independent.
+
+**Regression note:** a floating-point bug was found and fixed while
+re-verifying after this change - `roundToPrecision` used `Math.round(value /
+stepCm) * stepCm`, which produces off-by-a-hair values like
+`6.800000000000001` instead of `6.8` because `0.1` isn't exactly
+representable in binary floating point. Since matching was done via
+`JSON.stringify` equality, this silently zeroed out nearly all exact
+matches. Fixed by re-rounding the result to 6 decimal places. If you add
+any other rounding/precision logic here, re-run this comparison harness
+before trusting a "no improvement" or "regression" result - a numeric-noise
+bug like this can look exactly like an algorithm regression.
+
+## UI-parity fields added from a Wunderfold screenshot (unverified semantics)
+
+A screenshot of Wunderfold's config screen surfaced several parameters not
+previously modeled. They're now implemented with a best-effort interpretation
+of their behavior, but none of this was verified against live Wunderfold
+output - only the field *names and rough purpose* came from the screenshot:
+
+- **`cropSides`** (checkbox, default on): trims empty white columns from the
+  left/right image edges before slicing into leaves. Interpreted as
+  horizontal-only ("sides") based on the field name; if it turns out to also
+  crop vertically, that would additionally affect `verticalSpacingCm`'s
+  effective scale and would need re-deriving.
+- **`autoThreshold`** (checkbox, default on): Otsu's method instead of the
+  fixed threshold (128). This plausibly explains some of the ~13% segment-
+  count mismatches found during calibration (a fixed threshold would misread
+  columns wherever Wunderfold's real image had different lighting/contrast).
+- **`precisionMm`** (Low 1mm / Medium 0.5mm / High 0.1mm): rounding
+  granularity. The reference calibration data was all consistent with 1mm
+  (0.1cm) rounding, so this doesn't change the default - it only adds the
+  option.
+- **"Advanced+"** section in the screenshot was cropped/unreadable - its
+  contents are unknown and NOT implemented. The UI has an empty placeholder
+  toggle for it.
+- **"3D Preview"** button - a distinct, large feature (real-time 3D render of
+  the folded book), intentionally deferred. The UI has a disabled placeholder
+  button only.
+
+If/when there's a way to compare against live Wunderfold output again, the
+highest-value thing to verify is `verticalSpacingCm`'s exact slider
+range/units and default, since it's the one field this session could only
+reverse-engineer indirectly (via regression) rather than read directly off
+the competitor's UI.

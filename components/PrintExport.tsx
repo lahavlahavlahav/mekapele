@@ -44,7 +44,7 @@ export default function PrintExport() {
           <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
           <p className="text-sm text-[var(--ink-soft)] tabular">
             {config.totalPages} עמודים · {pages.length} עלים · גובה עמוד{" "}
-            {config.pageHeightCm} ס״מ · רוחב {config.pageWidthCm} ס״מ ·{" "}
+            {config.pageHeightCm} ס״מ · מרווח אנכי {config.verticalSpacingCm} ס״מ ·{" "}
             {config.mode === "MMF" ? "סימון וקיפול" : `גזירה וקיפול (לשונית מינ׳ ${config.minTabSizeMm} מ״מ)`}{" "}
             · {config.direction}
           </p>

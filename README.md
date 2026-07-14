@@ -44,9 +44,18 @@ Replace `public/assets/mekapele-logo.png` with the real brand logo
   a best-effort heuristic for that case (see ALGORITHM_NOTES.md).
 - **Cut & Fold:** every black/white toggle as cut pairs; black runs thinner
   than Min Tab Size are dropped.
-- The image is fit ("contain") into `pageWidthCm x pageHeightCm`, preserving
-  its aspect ratio (never stretched), and centered vertically - matching how
-  reference book-folding tools lay out the pattern:
-  `scale = min(pageWidthCm / imageWidthPx, pageHeightCm / imageHeightPx)`,
-  `cm = (pageHeightCm - imageHeightPx * scale) / 2 + pixelY * scale`,
-  rounded to 0.1.
+- The image renders at `verticalSpacingCm` tall (native aspect ratio, never
+  stretched) and is centered within `pageHeightCm` - matching how reference
+  book-folding tools ("Vertical Spacing" in Wunderfold) lay out the pattern:
+  `scale = verticalSpacingCm / imageHeightPx`,
+  `cm = (pageHeightCm - verticalSpacingCm) / 2 + pixelY * scale`,
+  rounded to `precisionMm` (default 1mm / 0.1cm).
+- **Crop sides** (`cropSides`, default on): trims empty white columns off the
+  left/right edges before slicing into leaves, so no leaves are wasted on
+  blank margins.
+- **Auto threshold** (`autoThreshold`, default on): computes the black/white
+  cutoff per image via Otsu's method instead of a fixed luminance value -
+  handles scans that are lighter/darker than a clean black-on-white
+  silhouette.
+- **Precision** (`precisionMm`): rounding granularity for output
+  measurements - Low (1mm) / Medium (0.5mm) / High (0.1mm).

@@ -14,6 +14,15 @@ const inputClass =
   "w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular";
 const inputStyle = { borderColor: "var(--line)" } as const;
 
+type HeightUnit = "cm" | "mm" | "in";
+const UNIT_TO_CM: Record<HeightUnit, number> = { cm: 1, mm: 0.1, in: 2.54 };
+
+const PRECISION_OPTIONS: { label: string; mm: number }[] = [
+  { label: "נמוך — 1 מ״מ", mm: 1 },
+  { label: "בינוני — 0.5 מ״מ", mm: 0.5 },
+  { label: "גבוה — 0.1 מ״מ", mm: 0.1 },
+];
+
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
 export default function ConfigPanel() {
   const { config, setConfig, loadPattern, pattern, setView } = useStore();
@@ -25,6 +34,9 @@ export default function ConfigPanel() {
   const [showGate, setShowGate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>("cm");
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const onSave = async () => {
     if (!user || !pattern) return;
@@ -57,8 +69,8 @@ export default function ConfigPanel() {
       setError("גובה העמוד חייב להיות גדול מ-0.");
       return false;
     }
-    if (config.pageWidthCm <= 0) {
-      setError("רוחב העמוד חייב להיות גדול מ-0.");
+    if (config.verticalSpacingCm <= 0) {
+      setError("המרווח האנכי חייב להיות גדול מ-0.");
       return false;
     }
     const first = Math.min(config.firstPage, config.lastPage);
@@ -145,8 +157,8 @@ export default function ConfigPanel() {
         </label>
       </div>
 
-      {/* Parameters */}
-      <div className="grid sm:grid-cols-2 gap-5 mb-6">
+      {/* Core parameters */}
+      <div className="grid sm:grid-cols-2 gap-5 mb-4">
         <Field label="סך עמודי הספר" hint="מספר זוגי. מספר העלים = עמודים ÷ 2.">
           <input
             type="number"
@@ -161,91 +173,85 @@ export default function ConfigPanel() {
           />
         </Field>
 
-        <Field label="עמוד ראשון" hint="תחילת טווח הקיפול, למשל 41.">
-          <input
-            type="number"
-            min={1}
-            className={inputClass}
-            style={inputStyle}
-            value={config.firstPage}
-            onChange={(e) =>
-              setConfig({ firstPage: parseInt(e.target.value || "0", 10) })
-            }
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="עמוד ראשון" hint="תחילת טווח הקיפול, למשל 41.">
+            <input
+              type="number"
+              min={1}
+              className={inputClass}
+              style={inputStyle}
+              value={config.firstPage}
+              onChange={(e) =>
+                setConfig({ firstPage: parseInt(e.target.value || "0", 10) })
+              }
+            />
+          </Field>
+          <Field label="עמוד אחרון" hint="סוף טווח הקיפול, למשל 360.">
+            <input
+              type="number"
+              min={1}
+              className={inputClass}
+              style={inputStyle}
+              value={config.lastPage}
+              onChange={(e) =>
+                setConfig({ lastPage: parseInt(e.target.value || "0", 10) })
+              }
+            />
+          </Field>
+        </div>
 
-        <Field label="עמוד אחרון" hint="סוף טווח הקיפול, למשל 360.">
-          <input
-            type="number"
-            min={1}
-            className={inputClass}
-            style={inputStyle}
-            value={config.lastPage}
-            onChange={(e) =>
-              setConfig({ lastPage: parseInt(e.target.value || "0", 10) })
-            }
-          />
-        </Field>
-
-        <Field label="גובה העמוד (ס״מ)" hint="הגובה הפיזי של עמוד אחד.">
-          <input
-            type="number"
-            min={1}
-            step={0.1}
-            className={inputClass}
-            style={inputStyle}
-            value={config.pageHeightCm}
-            onChange={(e) =>
-              setConfig({ pageHeightCm: parseFloat(e.target.value || "0") })
-            }
-          />
+        <Field label="גובה העמוד" hint="הגובה הפיזי של עמוד אחד.">
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={0}
+              step={0.1}
+              className={inputClass}
+              style={inputStyle}
+              value={round(config.pageHeightCm / UNIT_TO_CM[heightUnit])}
+              onChange={(e) =>
+                setConfig({
+                  pageHeightCm:
+                    parseFloat(e.target.value || "0") * UNIT_TO_CM[heightUnit],
+                })
+              }
+            />
+            <select
+              className="px-2 rounded-lg border bg-[var(--paper)]"
+              style={inputStyle}
+              value={heightUnit}
+              onChange={(e) => setHeightUnit(e.target.value as HeightUnit)}
+            >
+              <option value="cm">ס״מ</option>
+              <option value="mm">מ״מ</option>
+              <option value="in">אינץ׳</option>
+            </select>
+          </div>
         </Field>
 
         <Field
-          label="רוחב הספר (ס״מ)"
-          hint="הרוחב הכולל שהתמונה תתפרס עליו על פני כל העלים. התמונה תוקטן לפי יחס הממדים שלה ותמורכז - לא תימתח."
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              שיטת קיפול
+              <span
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold cursor-help"
+                style={{ background: "var(--line)", color: "var(--ink-soft)" }}
+                title="סימון וקיפול (MMF): כל עלה מקבל עד 2 סימונים. גזירה וקיפול: כל עלה יכול לקבל כמה זוגות גזירה."
+              >
+                i
+              </span>
+            </span>
+          }
         >
-          <input
-            type="number"
-            min={1}
-            step={0.1}
-            className={inputClass}
-            style={inputStyle}
-            value={config.pageWidthCm}
-            onChange={(e) =>
-              setConfig({ pageWidthCm: parseFloat(e.target.value || "0") })
-            }
-          />
-        </Field>
-
-        <Field label="שיטת קיפול">
           <select
             className={inputClass}
             style={inputStyle}
             value={config.mode}
             onChange={(e) => setConfig({ mode: e.target.value as FoldingMode })}
           >
-            <option value="MMF">סימון וקיפול</option>
+            <option value="MMF">סימון וקיפול (MMF)</option>
             <option value="CUT_AND_FOLD">גזירה וקיפול</option>
           </select>
-        </Field>
-
-        <Field
-          label="גודל לשונית מינימלי (מ״מ)"
-          hint="לגזירה וקיפול בלבד — מתעלם מגזירות דקות מערך זה."
-        >
-          <input
-            type="number"
-            min={0.1}
-            step={0.1}
-            disabled={config.mode !== "CUT_AND_FOLD"}
-            className={`${inputClass} disabled:opacity-40`}
-            style={inputStyle}
-            value={config.minTabSizeMm}
-            onChange={(e) =>
-              setConfig({ minTabSizeMm: parseFloat(e.target.value || "0") })
-            }
-          />
         </Field>
 
         <Field
@@ -266,6 +272,106 @@ export default function ConfigPanel() {
         </Field>
       </div>
 
+      {/* More options */}
+      <button
+        type="button"
+        onClick={() => setShowMoreOptions((v) => !v)}
+        className="text-sm font-semibold mb-3"
+        style={{ color: "var(--coral-deep)" }}
+      >
+        אפשרויות נוספות {showMoreOptions ? "−" : "+"}
+      </button>
+
+      {showMoreOptions && (
+        <div className="mb-6 space-y-5 rounded-[var(--radius)] p-4 border" style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}>
+          <Field
+            label={`מרווח אנכי (${config.verticalSpacingCm.toFixed(1)} ס״מ)`}
+            hint="כמה גבוה תוצג התמונה על העמוד. התמונה שומרת על יחס הממדים שלה ותמורכז - לא תימתח."
+          >
+            <input
+              type="range"
+              min={1}
+              max={30}
+              step={0.5}
+              value={config.verticalSpacingCm}
+              onChange={(e) =>
+                setConfig({ verticalSpacingCm: parseFloat(e.target.value) })
+              }
+              className="w-full"
+            />
+          </Field>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={config.cropSides}
+                onChange={(e) => setConfig({ cropSides: e.target.checked })}
+              />
+              חיתוך שולי התמונה
+            </label>
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={config.autoThreshold}
+                onChange={(e) => setConfig({ autoThreshold: e.target.checked })}
+              />
+              סף שחור/לבן אוטומטי
+            </label>
+          </div>
+
+          <Field label="דיוק" hint="רזולוציית העיגול של המדידות.">
+            <select
+              className={inputClass}
+              style={inputStyle}
+              value={config.precisionMm}
+              onChange={(e) =>
+                setConfig({ precisionMm: parseFloat(e.target.value) })
+              }
+            >
+              {PRECISION_OPTIONS.map((opt) => (
+                <option key={opt.mm} value={opt.mm}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field
+            label={`גודל לשונית מינימלי (${config.minTabSizeMm.toFixed(1)} מ״מ)`}
+            hint="לגזירה וקיפול בלבד — מתעלם מגזירות דקות מערך זה."
+          >
+            <input
+              type="range"
+              min={0.1}
+              max={5}
+              step={0.1}
+              disabled={config.mode !== "CUT_AND_FOLD"}
+              className="w-full disabled:opacity-40"
+              value={config.minTabSizeMm}
+              onChange={(e) =>
+                setConfig({ minTabSizeMm: parseFloat(e.target.value) })
+              }
+            />
+          </Field>
+        </div>
+      )}
+
+      {/* Advanced (placeholder for future parameters) */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced((v) => !v)}
+        className="text-sm font-semibold mb-3"
+        style={{ color: "var(--coral-deep)" }}
+      >
+        מתקדם {showAdvanced ? "−" : "+"}
+      </button>
+      {showAdvanced && (
+        <div className="mb-6 rounded-[var(--radius)] p-4 border text-sm text-[var(--ink-soft)]" style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}>
+          אפשרויות מתקדמות נוספות יתווספו כאן בעתיד.
+        </div>
+      )}
+
       {error && (
         <p
           className="mb-4 text-sm rounded-lg px-3 py-2"
@@ -284,6 +390,16 @@ export default function ConfigPanel() {
           style={{ background: "var(--ink)" }}
         >
           {busy ? "מעבד…" : "צרו תבנית"}
+        </button>
+
+        <button
+          type="button"
+          disabled
+          title="תצוגה תלת-ממדית - בקרוב"
+          className="px-5 rounded-[var(--radius)] font-semibold border opacity-50 cursor-not-allowed"
+          style={{ borderColor: "var(--line)" }}
+        >
+          תצוגת 3D (בקרוב)
         </button>
 
         {pattern && (
@@ -314,4 +430,8 @@ export default function ConfigPanel() {
       )}
     </div>
   );
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
 }

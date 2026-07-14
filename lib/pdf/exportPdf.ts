@@ -85,7 +85,7 @@ export async function exportPatternPdf(
     doc.setTextColor(120);
     const modeLabel = config.mode === "MMF" ? "MMF" : "Cut & Fold";
     doc.text(
-      `${config.totalPages} pages | ${pages.length} leaves | ${config.pageHeightCm}x${config.pageWidthCm} cm | ${modeLabel} | ${config.direction}`,
+      `${config.totalPages} pages | ${pages.length} leaves | ${config.pageHeightCm}cm (spacing ${config.verticalSpacingCm}cm) | ${modeLabel} | ${config.direction}`,
       pageW - 14,
       22,
       { align: "right" }

@@ -9,17 +9,21 @@ export interface BookConfig {
   lastPage: number; // last page of the active range, e.g. 360
   pageHeightCm: number; // physical height of a page, e.g. 21.0
   /**
-   * Physical width the source image is fit into, spanning the full active
-   * leaf range (folded book viewed from the page edges), e.g. 15.0. The
-   * image is scaled to fit within pageWidthCm x pageHeightCm preserving its
-   * aspect ratio (never stretched) and centered - matching how reference
-   * tools such as Wunderfold lay out the pattern instead of stretching the
-   * image to fill the full page height.
+   * How tall the source image is rendered, in cm ("Vertical Spacing" in
+   * reference tools like Wunderfold). The image keeps its native pixel
+   * aspect ratio at this height (never stretched) and is centered within
+   * pageHeightCm - it is NOT stretched to fill the full page height.
    */
-  pageWidthCm: number;
+  verticalSpacingCm: number;
   mode: FoldingMode;
   minTabSizeMm: number; // only used in CUT_AND_FOLD, default 1.0
   direction: ReadingDirection;
+  /** Trim empty white columns off the left/right edges before slicing. */
+  cropSides: boolean;
+  /** Compute the black/white threshold per image (Otsu) instead of a fixed value. */
+  autoThreshold: boolean;
+  /** Rounding granularity for output measurements, in mm (e.g. 1, 0.5, 0.1). */
+  precisionMm: number;
 }
 
 /**

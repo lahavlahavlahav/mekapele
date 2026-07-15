@@ -8,13 +8,15 @@
 // spine axis at increasing angles reproduces the relief-silhouette effect of
 // real book-folding art (see ALGORITHM_NOTES.md reference image).
 //
-// Coordinate model (see buildLeafOrientation for the full derivation):
+// Coordinate model (see orientLeaf for the full derivation):
 //   - The spine is a fixed line segment of length `pageHeightCm` along
-//     world X, centered at the origin.
+//     world Y (vertical), centered at the origin - the book stands upright,
+//     matching how book-folding art is actually displayed (spine up, pages
+//     fanning open sideways), rather than lying flat on its side.
 //   - Each leaf is a flat shape drawn in local (depth, spinePosition) space,
 //     extruded by a small thickness, then rotated so spinePosition maps onto
-//     the shared world-X spine and depth points outward at the leaf's own
-//     fan angle (rotating in the world Y-Z plane around that spine axis).
+//     the shared world-Y spine and depth points outward at the leaf's own
+//     fan angle (rotating in the world X-Z plane around that spine axis).
 // =============================================================================
 
 import * as THREE from "three";
@@ -83,7 +85,7 @@ export function buildLeafShape(
   return shape;
 }
 
-/** A plain full-depth rectangle - used for the decorative "unfolded" side of the book. */
+/** A plain full-depth rectangle - used for the front/back covers. */
 export function buildFlatLeafShape(pageHeightCm: number, depth: number): THREE.Shape {
   const shape = new THREE.Shape();
   shape.moveTo(0, 0);
@@ -97,10 +99,11 @@ export function buildFlatLeafShape(pageHeightCm: number, depth: number): THREE.S
 /**
  * Orient a leaf mesh (built from buildLeafShape/buildFlatLeafShape, extruded
  * along local Z for thickness) so that:
- *   - local Y (spine position, 0..pageHeightCm) maps onto world X, centered.
+ *   - local Y (spine position, 0..pageHeightCm) maps onto world Y, centered -
+ *     the book stands upright, spine vertical.
  *   - local X (depth, 0..fullDepth) maps onto a world direction that fans
- *     outward at `angle` (radians) from vertical, rotating in the world Y-Z
- *     plane around the shared spine (world X axis).
+ *     outward at `angle` (radians) from front-center, rotating in the world
+ *     X-Z plane around the shared spine (world Y axis).
  *   - local Z (thickness) maps onto the tangent direction, so consecutive
  *     leaves at slightly different angles don't z-fight.
  */
@@ -109,8 +112,8 @@ export function orientLeaf(
   angle: number,
   pageHeightCm: number
 ): void {
-  const depthDir = new THREE.Vector3(0, Math.cos(angle), Math.sin(angle));
-  const spineDir = new THREE.Vector3(1, 0, 0);
+  const depthDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
+  const spineDir = new THREE.Vector3(0, 1, 0);
   // Must be depthDir x spineDir (not the reverse) so (depthDir, spineDir,
   // thicknessDir) is a right-handed, determinant +1 basis - makeBasis()
   // silently accepts a left-handed triple too, but setFromRotationMatrix
@@ -118,5 +121,5 @@ export function orientLeaf(
   const thicknessDir = new THREE.Vector3().crossVectors(depthDir, spineDir).normalize();
   const basis = new THREE.Matrix4().makeBasis(depthDir, spineDir, thicknessDir);
   mesh.quaternion.setFromRotationMatrix(basis);
-  mesh.position.set(-pageHeightCm / 2, 0, 0);
+  mesh.position.set(0, -pageHeightCm / 2, 0);
 }

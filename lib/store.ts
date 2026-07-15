@@ -13,7 +13,6 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { BookConfig, FoldingPattern } from "./types";
 
 export const DEFAULT_CONFIG: BookConfig = {
-  totalPages: 400,
   firstPage: 41,
   lastPage: 360,
   pageHeightCm: 21.0,

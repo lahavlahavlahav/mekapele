@@ -11,28 +11,25 @@ interface BookModelProps {
   coverImageUrl: string | null;
 }
 
-const GUTTER = 0.06; // rad, small gap at the spine "valley" between the two halves
-const MAX_ANGLE = 1.35; // rad (~77deg) - how far each half fans out
+const MAX_ANGLE = 1.35; // rad (~77deg) - half-width of the fan on each side of center
 const COVER_GUTTER = 0.12; // extra angle for the covers past the last leaf
 
 const PAGE_COLOR = "#efe4c8";
 const COVER_COLOR = "#1d2433";
 const STAND_COLOR = "#5c3a21";
 
+/** Every real leaf gets its own angle, spread across the full fan (-MAX_ANGLE..MAX_ANGLE). */
 function useLeafAngles(leafCount: number) {
   return useMemo(() => {
-    const unfolded: number[] = [];
-    const folded: number[] = [];
+    const angles: number[] = [];
     for (let i = 0; i < leafCount; i++) {
-      const t = leafCount <= 1 ? 0 : i / (leafCount - 1);
-      unfolded.push(-GUTTER - t * (MAX_ANGLE - GUTTER));
-      folded.push(GUTTER + t * (MAX_ANGLE - GUTTER));
+      const t = leafCount <= 1 ? 0.5 : i / (leafCount - 1);
+      angles.push(-MAX_ANGLE + t * (2 * MAX_ANGLE));
     }
-    return { unfolded, folded };
+    return angles;
   }, [leafCount]);
 }
 
-/** One fanned half of the book: `count` leaves, each oriented at its own angle. */
 function LeafFan({
   geometries,
   angles,
@@ -87,7 +84,7 @@ export default function BookModel({ pattern, coverImageUrl }: BookModelProps) {
   const foldedDepth = fullDepth * 0.16;
   const thickness = Math.max(0.03, (pageHeightCm * 0.4) / leafCount);
 
-  const { unfolded, folded } = useLeafAngles(leafCount);
+  const angles = useLeafAngles(leafCount);
 
   const foldedGeometries = useMemo(
     () =>
@@ -98,12 +95,6 @@ export default function BookModel({ pattern, coverImageUrl }: BookModelProps) {
     [pages, pageHeightCm, foldedDepth, fullDepth, thickness]
   );
 
-  const unfoldedGeometries = useMemo(() => {
-    const shape = buildFlatLeafShape(pageHeightCm, fullDepth);
-    const geom = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
-    return Array.from({ length: leafCount }, () => geom);
-  }, [pageHeightCm, fullDepth, thickness, leafCount]);
-
   const coverAngleBack = -(MAX_ANGLE + COVER_GUTTER);
   const coverAngleFront = MAX_ANGLE + COVER_GUTTER;
   const coverThickness = thickness * 4;
@@ -113,15 +104,17 @@ export default function BookModel({ pattern, coverImageUrl }: BookModelProps) {
     return new THREE.ExtrudeGeometry(shape, { depth: coverThickness, bevelEnabled: false });
   }, [pageHeightCm, fullDepth, coverThickness]);
 
+  // Footprint of the fully-fanned block on the table (X = sideways spread, Z = forward reach).
+  const standWidth = fullDepth * Math.sin(MAX_ANGLE + COVER_GUTTER) * 2.1;
+  const standDepth = fullDepth * 1.25;
+  const standHeight = pageHeightCm * 0.05;
+
   return (
     <group>
-      {/* Decorative unfolded half (open pages, no pattern data). */}
-      <LeafFan geometries={unfoldedGeometries} angles={unfolded} pageHeightCm={pageHeightCm} color={PAGE_COLOR} />
+      {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}
+      <LeafFan geometries={foldedGeometries} angles={angles} pageHeightCm={pageHeightCm} color={PAGE_COLOR} />
 
-      {/* The patterned half - this is the real data-driven relief. */}
-      <LeafFan geometries={foldedGeometries} angles={folded} pageHeightCm={pageHeightCm} color={PAGE_COLOR} />
-
-      {/* Covers */}
+      {/* Covers cap the fan on both ends. */}
       <BackCover geometry={coverGeometry} angle={coverAngleBack} pageHeightCm={pageHeightCm} />
       <CoverWithArt
         geometry={coverGeometry}
@@ -130,17 +123,11 @@ export default function BookModel({ pattern, coverImageUrl }: BookModelProps) {
         imageUrl={coverImageUrl}
       />
 
-      {/* Simple crossed wooden stand beneath the spine. */}
-      <group position={[0, -fullDepth * 0.55, 0]}>
-        <mesh rotation={[0, 0, Math.PI / 5]} castShadow receiveShadow>
-          <boxGeometry args={[pageHeightCm * 1.05, fullDepth * 0.09, fullDepth * 0.14]} />
-          <meshStandardMaterial color={STAND_COLOR} roughness={0.7} />
-        </mesh>
-        <mesh rotation={[0, 0, -Math.PI / 5]} castShadow receiveShadow>
-          <boxGeometry args={[pageHeightCm * 1.05, fullDepth * 0.09, fullDepth * 0.14]} />
-          <meshStandardMaterial color={STAND_COLOR} roughness={0.7} />
-        </mesh>
-      </group>
+      {/* Flat wooden base plinth under the standing, fanned-open book. */}
+      <mesh position={[0, -pageHeightCm / 2 - standHeight / 2, standDepth * 0.15]} castShadow receiveShadow>
+        <boxGeometry args={[standWidth, standHeight, standDepth]} />
+        <meshStandardMaterial color={STAND_COLOR} roughness={0.7} />
+      </mesh>
     </group>
   );
 }

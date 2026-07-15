@@ -62,7 +62,8 @@ export default function WorkshopTracker() {
           <div className="leading-tight">
             <p className="eyebrow">מצב סדנה</p>
             <p className="text-sm font-semibold">
-              {pattern.config.totalPages} עמודים · {pattern.config.direction} ·{" "}
+              עמודים {pattern.config.firstPage}–{pattern.config.lastPage} ·{" "}
+              {pattern.pages.length} עלים · {pattern.config.direction} ·{" "}
               {pattern.config.mode === "MMF" ? "סימון וקיפול" : "גזירה וקיפול"}
             </p>
           </div>

@@ -4,7 +4,6 @@ export type FoldingMode = "MMF" | "CUT_AND_FOLD";
 export type ReadingDirection = "LTR" | "RTL";
 
 export interface BookConfig {
-  totalPages: number; // physical sheet count of the book, e.g. 400
   firstPage: number; // first page of the ACTIVE folding range, e.g. 41
   lastPage: number; // last page of the active range, e.g. 360
   pageHeightCm: number; // physical height of a page, e.g. 21.0

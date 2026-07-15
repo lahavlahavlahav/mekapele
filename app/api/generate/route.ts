@@ -114,9 +114,11 @@ export async function POST(req: NextRequest) {
 
   // Basic config sanity (don't trust client numbers).
   if (
-    !Number.isFinite(config.totalPages) ||
-    config.totalPages < 2 ||
-    config.totalPages % 2 !== 0 ||
+    !Number.isFinite(config.firstPage) ||
+    !Number.isFinite(config.lastPage) ||
+    config.firstPage < 1 ||
+    config.lastPage < 1 ||
+    config.firstPage === config.lastPage ||
     !Number.isFinite(config.pageHeightCm) ||
     config.pageHeightCm <= 0 ||
     !Number.isFinite(config.verticalSpacingCm) ||

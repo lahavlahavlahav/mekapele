@@ -185,20 +185,6 @@ export default function ConfigPanel() {
 
       {/* Core parameters */}
       <div className="grid sm:grid-cols-2 gap-5 mb-4">
-        <Field label="סך עמודי הספר" hint="מספר זוגי. מספר העלים = עמודים ÷ 2.">
-          <input
-            type="number"
-            min={2}
-            step={2}
-            className={inputClass}
-            style={inputStyle}
-            value={config.totalPages}
-            onChange={(e) =>
-              setConfig({ totalPages: parseInt(e.target.value || "0", 10) })
-            }
-          />
-        </Field>
-
         <div className="grid grid-cols-2 gap-3">
           <Field label="עמוד ראשון" hint="תחילת טווח הקיפול, למשל 41.">
             <input

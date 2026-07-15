@@ -134,7 +134,7 @@ export default function MyPatterns() {
                   <div>
                     <h3 className="font-display text-lg">{sp.name}</h3>
                     <p className="text-xs text-[var(--ink-soft)] tabular">
-                      {sp.pattern.config.totalPages} עמודים ·{" "}
+                      עמודים {sp.pattern.config.firstPage}–{sp.pattern.config.lastPage} ·{" "}
                       {sp.pattern.config.mode === "MMF" ? "סימון וקיפול" : "גזירה וקיפול"}{" "}
                       · {new Date(sp.createdAt).toLocaleDateString("he-IL")}
                     </p>

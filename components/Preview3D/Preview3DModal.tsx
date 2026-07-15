@@ -16,7 +16,8 @@ interface Preview3DModalProps {
 export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Preview3DModalProps) {
   const pageHeightCm = pattern.config.pageHeightCm;
   const radius = pageHeightCm * 1.4;
-  const target: [number, number, number] = [0, pageHeightCm * 0.1, 0];
+  const target: [number, number, number] = [0, 0, 0];
+  const groundY = -pageHeightCm * 0.58;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "rgba(29,36,51,0.92)" }}>
@@ -24,7 +25,12 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
       <div className="flex items-center justify-between px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2 text-[var(--paper)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-7 w-auto opacity-90" />
+          <img
+            src="/assets/mekapele-logo.png"
+            alt="Lilou Books"
+            className="h-7 w-auto opacity-90"
+            style={{ filter: "invert(1)" }}
+          />
           <span className="text-sm font-semibold hidden sm:inline">תצוגה מקדימה בתלת-ממד</span>
         </div>
         <button
@@ -41,7 +47,7 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
         <Canvas
           shadows
           dpr={[1, 2]}
-          camera={{ position: [radius * 0.5, radius * 0.6, radius * 1.7], fov: 40 }}
+          camera={{ position: [radius * 0.15, radius * 0.25, radius * 1.7], fov: 40 }}
         >
           <color attach="background" args={["#2a3142"]} />
           <ambientLight intensity={0.55} />
@@ -58,7 +64,7 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           </Suspense>
 
           <ContactShadows
-            position={[0, -pageHeightCm * 0.85, 0]}
+            position={[0, groundY, 0]}
             opacity={0.35}
             scale={radius * 1.6}
             blur={2.5}
@@ -76,9 +82,14 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
         </Canvas>
 
         {/* Watermark */}
-        <div className="pointer-events-none absolute bottom-3 left-3 opacity-60">
+        <div className="pointer-events-none absolute bottom-3 left-3 opacity-85">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/mekapele-logo.png" alt="" className="h-6 w-auto sm:h-8" />
+          <img
+            src="/assets/mekapele-logo.png"
+            alt=""
+            className="h-6 w-auto sm:h-8"
+            style={{ filter: "invert(1)" }}
+          />
         </div>
 
         <p className="pointer-events-none absolute bottom-3 right-3 text-xs text-[var(--paper)] opacity-70">

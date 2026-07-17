@@ -51,6 +51,14 @@ export interface FoldingPattern {
   pages: PageMeasurement[];
   imageWidth: number;
   imageHeight: number;
+  /**
+   * Content bounding box on X used when slicing columns (see
+   * computeContentBoundsX in lib/algorithm.ts). Optional because patterns
+   * saved before this field existed (localStorage/Firestore) won't have it -
+   * callers should fall back to {cropStartX: 0, cropWidth: imageWidth}.
+   */
+  cropStartX?: number;
+  cropWidth?: number;
   generatedAt: number;
 }
 

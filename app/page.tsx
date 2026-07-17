@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import ConfigPanel from "@/components/ConfigPanel";
 import WorkshopTracker from "@/components/tracker/WorkshopTracker";
+import GridEditor from "@/components/tracker/GridEditor";
 import PrintExport from "@/components/PrintExport";
 import MyPatterns from "@/components/MyPatterns";
 
@@ -28,6 +29,7 @@ export default function Home() {
   }
 
   if (view === "tracker" && pattern) return <WorkshopTracker />;
+  if (view === "editGrid" && pattern) return <GridEditor />;
   if (view === "print" && pattern) return <PrintExport />;
   if (view === "patterns") return <MyPatterns />;
   return <ConfigPanel />;

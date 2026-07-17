@@ -25,7 +25,7 @@ export const DEFAULT_CONFIG: BookConfig = {
   precisionMm: 1,
 };
 
-export type AppView = "config" | "tracker" | "print" | "patterns";
+export type AppView = "config" | "tracker" | "print" | "patterns" | "editGrid";
 
 interface AppState {
   config: BookConfig;
@@ -49,6 +49,8 @@ interface AppState {
   unmarkCurrentFolded: () => void;
   resetProgress: () => void;
   resetAll: () => void;
+  /** Manual grid-editor correction: overwrite one leaf's fold marks (cm, will be sorted). */
+  setLeafMarks: (leaf: number, marksCm: number[]) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -110,6 +112,16 @@ export const useStore = create<AppState>()(
         })),
 
       resetProgress: () => set({ currentPage: 1, foldedPages: [] }),
+
+      setLeafMarks: (leaf, marksCm) =>
+        set((s) => {
+          if (!s.pattern) return s;
+          const sorted = [...marksCm].sort((a, b) => a - b);
+          const pages = s.pattern.pages.map((p) =>
+            p.leaf === leaf ? { ...p, marksCm: sorted, isBlank: sorted.length === 0 } : p
+          );
+          return { pattern: { ...s.pattern, pages } };
+        }),
 
       resetAll: () =>
         set({

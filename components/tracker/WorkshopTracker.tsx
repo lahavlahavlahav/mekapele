@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import FocusCard from "./FocusCard";
 import ProgressBar from "./ProgressBar";
 import ImagePreview from "./ImagePreview";
+import PageJump from "./PageJump";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 
 /**
@@ -53,7 +54,7 @@ export default function WorkshopTracker() {
   const atEnd = currentPage >= totalLeaves;
 
   return (
-    <div className="min-h-screen pb-28 sm:pb-8">
+    <div className="min-h-screen pb-28">
       {/* Header */}
       <header className="no-print flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--line)" }}>
         <div className="flex items-center gap-3">
@@ -75,6 +76,13 @@ export default function WorkshopTracker() {
             style={{ borderColor: "var(--line)" }}
           >
             ייצוא PDF
+          </button>
+          <button
+            onClick={() => setView("editGrid")}
+            className="text-sm px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: "var(--line)" }}
+          >
+            עריכת סימונים
           </button>
           <button
             onClick={() => setView("print")}
@@ -114,21 +122,6 @@ export default function WorkshopTracker() {
           >
             {isFolded ? "✓ קופל — הקישו לביטול" : "סמנו עמוד כמקופל"}
           </button>
-
-          {/* Desktop nav (mobile uses sticky bar below) */}
-          <div className="hidden sm:flex items-center justify-between mt-4 gap-3">
-            <NavButton onClick={prevPage} disabled={atStart}>
-              → הקודם
-            </NavButton>
-            <PageJump
-              current={currentPage}
-              total={totalLeaves}
-              onJump={goToPage}
-            />
-            <NavButton onClick={nextPage} disabled={atEnd}>
-              הבא ←
-            </NavButton>
-          </div>
         </section>
 
         {/* Right: preview + progress */}
@@ -155,21 +148,32 @@ export default function WorkshopTracker() {
         </aside>
       </main>
 
-      {/* Mobile sticky nav */}
+      {/* Fixed nav bar - constant physical position at every breakpoint, so the
+          Next/Prev buttons never move regardless of FocusCard's variable height. */}
       <nav
-        className="no-print sm:hidden fixed bottom-0 inset-x-0 px-4 py-3 border-t flex items-center gap-3"
+        className="no-print fixed bottom-0 inset-x-0 px-4 py-3 border-t flex items-center gap-3"
         style={{ borderColor: "var(--line)", background: "var(--paper)" }}
       >
-        <NavButton onClick={prevPage} disabled={atStart}>
-          →
-        </NavButton>
-        <div className="flex-1 text-center font-display tabular text-lg">
-          {currentPage}
-          <span className="text-[var(--ink-soft)] text-sm"> / {totalLeaves}</span>
+        <div className="max-w-5xl mx-auto w-full flex items-center gap-3">
+          <NavButton onClick={prevPage} disabled={atStart}>
+            → הקודם
+          </NavButton>
+          <div className="flex-1 flex items-center justify-center gap-3 min-w-0">
+            <span className="font-display tabular text-lg whitespace-nowrap">
+              {currentPage}
+              <span className="text-[var(--ink-soft)] text-sm"> / {totalLeaves}</span>
+            </span>
+            {/* PageJump needs more horizontal room than the smallest phones have
+                alongside both nav buttons in one row - keep it desktop/tablet only,
+                mobile keeps the compact counter (as before this bar was unified). */}
+            <div className="hidden sm:block">
+              <PageJump current={currentPage} total={totalLeaves} onJump={goToPage} />
+            </div>
+          </div>
+          <NavButton onClick={nextPage} disabled={atEnd}>
+            הבא ←
+          </NavButton>
         </div>
-        <NavButton onClick={nextPage} disabled={atEnd}>
-          ←
-        </NavButton>
       </nav>
     </div>
   );
@@ -188,35 +192,10 @@ function NavButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="px-5 py-3 rounded-[var(--radius)] font-semibold border disabled:opacity-35 disabled:cursor-not-allowed"
+      className="shrink-0 whitespace-nowrap px-5 py-3 rounded-[var(--radius)] font-semibold border disabled:opacity-35 disabled:cursor-not-allowed"
       style={{ borderColor: "var(--line)", background: "var(--paper)" }}
     >
       {children}
     </button>
-  );
-}
-
-function PageJump({
-  current,
-  total,
-  onJump,
-}: {
-  current: number;
-  total: number;
-  onJump: (n: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm text-[var(--ink-soft)]">
-      עמוד
-      <input
-        type="number"
-        min={1}
-        max={total}
-        value={current}
-        onChange={(e) => onJump(parseInt(e.target.value || "1", 10))}
-        className="w-20 px-2 py-2 rounded-lg border text-center tabular"
-        style={{ borderColor: "var(--line)", background: "var(--paper)" }}
-      />
-    </label>
   );
 }

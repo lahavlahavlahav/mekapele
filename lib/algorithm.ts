@@ -67,6 +67,19 @@ export function pixelYToCm(
   return roundToPrecision(topMarginCm + pixelY * scale, precisionMm);
 }
 
+/** Inverse of pixelYToCm: physical centimeters down the page → pixel Y-coordinate. */
+export function cmToPixelY(
+  cm: number,
+  imageHeightPixels: number,
+  verticalSpacingCm: number,
+  pageHeightCm: number
+): number {
+  if (imageHeightPixels <= 0 || verticalSpacingCm <= 0) return 0;
+  const scale = verticalSpacingCm / imageHeightPixels;
+  const topMarginCm = (pageHeightCm - verticalSpacingCm) / 2;
+  return (cm - topMarginCm) / scale;
+}
+
 function isBlack(luminance: number, threshold: number): boolean {
   return luminance <= threshold;
 }
@@ -333,6 +346,8 @@ export function generateFoldingPattern(
     pages,
     imageWidth: grid.width,
     imageHeight: grid.height,
+    cropStartX,
+    cropWidth,
     generatedAt: Date.now(),
   };
 }

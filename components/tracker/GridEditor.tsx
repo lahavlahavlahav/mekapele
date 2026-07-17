@@ -25,8 +25,13 @@ const CANVAS_DISPLAY_WIDTH = 280;
  * originally generated values.
  */
 export default function GridEditor() {
-  const { pattern, thumbnail, config, originalPages, setLeafMarks, resetLeafMarks, setView } =
+  const { pattern, thumbnail, sourceImage, config, originalPages, setLeafMarks, resetLeafMarks, setView } =
     useStore();
+  // Prefer the high-resolution source image (matches the algorithm's own
+  // working resolution) over the small 480px thumbnail - the thumbnail blurs
+  // badly once blown up per-leaf for precision editing. Falls back to
+  // thumbnail for patterns saved before sourceImage existed.
+  const editImage = sourceImage ?? thumbnail;
 
   const [mode, setMode] = useState<ViewMode>("single");
   const [currentLeaf, setCurrentLeaf] = useState(1);
@@ -38,14 +43,14 @@ export default function GridEditor() {
   const totalLeaves = pattern?.pages.length ?? 0;
 
   useEffect(() => {
-    if (!thumbnail) return;
+    if (!editImage) return;
     const img = new Image();
     img.onload = () => {
       imgRef.current = img;
       setImgSize({ width: img.width, height: img.height });
     };
-    img.src = thumbnail;
-  }, [thumbnail]);
+    img.src = editImage;
+  }, [editImage]);
 
   useEffect(() => setLeafInput(String(currentLeaf)), [currentLeaf]);
 
@@ -237,7 +242,7 @@ export default function GridEditor() {
             >
               <p className="font-semibold mb-1">עלה {currentLeaf}</p>
               {marksCm.length === 0 && (
-                <p className="text-sm text-[var(--ink-soft)]">אין סימונים בעלה זה.</p>
+                <p className="text-sm text-[var(--ink-soft)]">אין סימונים בעלה זו.</p>
               )}
               {marksCm.map((v, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -290,7 +295,7 @@ export default function GridEditor() {
               className="rounded-[var(--radius)] border flex items-start justify-center p-3"
               style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
             >
-              {!thumbnail ? (
+              {!editImage ? (
                 <p className="text-sm text-[var(--ink-soft)] py-8">אין תמונת מקור זמינה לעריכה.</p>
               ) : (
                 <canvas

@@ -6,6 +6,8 @@ interface FocusCardProps {
   measurement: PageMeasurement;
   totalLeaves: number;
   mode: FoldingMode;
+  isFolded: boolean;
+  onToggleFold: () => void;
 }
 
 /**
@@ -16,6 +18,8 @@ export default function FocusCard({
   measurement,
   totalLeaves,
   mode,
+  isFolded,
+  onToggleFold,
 }: FocusCardProps) {
   const { page, marksCm, isBlank } = measurement;
 
@@ -27,9 +31,24 @@ export default function FocusCard({
 
   return (
     <div
-      className="rounded-[var(--radius)] p-6 sm:p-8 text-center"
+      className="relative rounded-[var(--radius)] p-6 sm:p-8 text-center"
       style={{ background: "var(--ink)", boxShadow: "var(--shadow)" }}
     >
+      {/* Pinned to the dark card's own top-right corner (not the page header),
+          so it stays right next to "מקפלים עכשיו" and its position is fixed
+          relative to the card regardless of how tall the card grows below. */}
+      <button
+        onClick={onToggleFold}
+        className="absolute top-3 right-3 text-sm px-3 py-1.5 rounded-lg font-semibold"
+        style={
+          isFolded
+            ? { background: "var(--sage)", color: "#fff" }
+            : { background: "var(--coral)", color: "#fff" }
+        }
+      >
+        {isFolded ? "✓ קיפלתי" : "קיפלתי"}
+      </button>
+
       <p className="eyebrow" style={{ color: "rgba(246,241,231,0.6)" }}>
         מקפלים עכשיו
       </p>

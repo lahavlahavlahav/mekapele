@@ -120,8 +120,9 @@ export default function ConfigPanel() {
         // Same maxEdge as extractPixelGrid, so this lines up 1:1 with the
         // algorithm's own working resolution - sharp enough for GridEditor's
         // per-leaf zoom, and also doubles as the "remembered image" restored
-        // in ConfigPanel when navigating back without a fresh upload.
-        makeThumbnail(file, 1600),
+        // in ConfigPanel when navigating back without a fresh upload. JPEG
+        // (not PNG) at this size - see makeThumbnail's docs on why.
+        makeThumbnail(file, 1600, "image/jpeg", 0.88),
       ]);
       const pattern = generateFoldingPattern(grid, config);
       loadPattern(pattern, thumb, sourceImg);

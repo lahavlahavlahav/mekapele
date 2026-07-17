@@ -68,8 +68,23 @@ export async function extractPixelGrid(
   return { width, height, luminance };
 }
 
-/** A small base64 thumbnail (data URL) for the tracker preview & persistence. */
-export async function makeThumbnail(file: File, maxEdge = 480): Promise<string> {
+/**
+ * A base64 thumbnail (data URL) for previews & persistence.
+ *
+ * `format`/`quality` matter a lot at larger `maxEdge` values: PNG re-encodes
+ * a photographic source at full fidelity, which for a real photo (not a
+ * simple black/white silhouette) can run several MB at 1600px - easily
+ * enough to blow past localStorage's ~5-10MB per-origin quota once combined
+ * with the rest of the persisted pattern, silently corrupting/truncating
+ * what gets saved. JPEG compresses photographic content far more, at a
+ * quality loss that doesn't matter for a reference image.
+ */
+export async function makeThumbnail(
+  file: File,
+  maxEdge = 480,
+  format: "image/png" | "image/jpeg" = "image/png",
+  quality = 0.9
+): Promise<string> {
   const img = await loadImage(file);
   const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
   const width = Math.max(1, Math.round(img.width * scale));
@@ -80,6 +95,12 @@ export async function makeThumbnail(file: File, maxEdge = 480): Promise<string> 
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not available in this browser.");
+  if (format === "image/jpeg") {
+    // JPEG has no alpha channel - flatten onto white first so transparent
+    // areas (common around book-folding silhouettes) don't turn black.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+  }
   ctx.drawImage(img, 0, 0, width, height);
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL(format, quality);
 }

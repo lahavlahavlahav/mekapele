@@ -37,20 +37,35 @@ export default function GridEditor() {
   const [currentLeaf, setCurrentLeaf] = useState(1);
   const [leafInput, setLeafInput] = useState("1");
   const [imgSize, setImgSize] = useState<{ width: number; height: number } | null>(null);
+  const [imgFailed, setImgFailed] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const totalLeaves = pattern?.pages.length ?? 0;
 
   useEffect(() => {
-    if (!editImage) return;
+    // A large data URL that never finished persisting (e.g. a localStorage
+    // quota hiccup on a very long pattern) can come back truncated/corrupt -
+    // valid as a string, but not decodable as an image. Fall back to the
+    // smaller thumbnail rather than leaving the canvas blank in that case.
+    const activeSrc = imgFailed && sourceImage && thumbnail && thumbnail !== sourceImage ? thumbnail : editImage;
+    if (!activeSrc) return;
+    let cancelled = false;
     const img = new Image();
     img.onload = () => {
+      if (cancelled) return;
       imgRef.current = img;
       setImgSize({ width: img.width, height: img.height });
     };
-    img.src = editImage;
-  }, [editImage]);
+    img.onerror = () => {
+      if (cancelled) return;
+      if (!imgFailed) setImgFailed(true);
+    };
+    img.src = activeSrc;
+    return () => {
+      cancelled = true;
+    };
+  }, [editImage, imgFailed, sourceImage, thumbnail]);
 
   useEffect(() => setLeafInput(String(currentLeaf)), [currentLeaf]);
 

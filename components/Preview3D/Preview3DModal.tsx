@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import BookModel from "./BookModel";
@@ -14,6 +14,7 @@ interface Preview3DModalProps {
 
 /** Fullscreen modal hosting the interactive 3D book preview. */
 export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Preview3DModalProps) {
+  const [openAngleDeg, setOpenAngleDeg] = useState(90);
   const pageHeightCm = pattern.config.pageHeightCm;
   const radius = pageHeightCm * 1.4;
   const target: [number, number, number] = [0, 0, 0];
@@ -60,7 +61,7 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           <directionalLight position={[-radius, radius * 0.5, -radius]} intensity={0.35} />
 
           <Suspense fallback={null}>
-            <BookModel pattern={pattern} coverImageUrl={coverImageUrl} />
+            <BookModel pattern={pattern} coverImageUrl={coverImageUrl} openAngleDeg={openAngleDeg} />
           </Suspense>
 
           <ContactShadows
@@ -95,6 +96,24 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
         <p className="pointer-events-none absolute bottom-3 right-3 text-xs text-[var(--paper)] opacity-70">
           גררו לסיבוב · גלגלת/צביטה לזום
         </p>
+
+        {/* Opening-angle control: 0deg (closed) .. 180deg (flat open), default 90deg. */}
+        <div
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 px-3 py-2 rounded-lg"
+          style={{ background: "rgba(29,36,51,0.7)" }}
+        >
+          <span className="text-xs text-[var(--paper)] whitespace-nowrap">זווית פתיחה</span>
+          <input
+            type="range"
+            min={0}
+            max={180}
+            step={1}
+            value={openAngleDeg}
+            onChange={(e) => setOpenAngleDeg(Number(e.target.value))}
+            className="w-32 sm:w-40"
+          />
+          <span className="text-xs text-[var(--paper)] tabular w-10 text-left">{openAngleDeg}°</span>
+        </div>
       </div>
     </div>
   );

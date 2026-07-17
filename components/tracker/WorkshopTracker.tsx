@@ -58,6 +58,20 @@ export default function WorkshopTracker() {
       {/* Header */}
       <header className="no-print flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--line)" }}>
         <div className="flex items-center gap-3">
+          {/* Fixed at the very top-right corner (first in DOM = rightmost in
+              RTL), not in the content flow below FocusCard, so its position
+              stays identical across every page regardless of content height. */}
+          <button
+            onClick={isFolded ? unmarkCurrentFolded : markCurrentFolded}
+            className="text-sm px-3 py-1.5 rounded-lg font-semibold"
+            style={
+              isFolded
+                ? { background: "var(--sage)", color: "#fff" }
+                : { background: "var(--coral)", color: "#fff" }
+            }
+          >
+            {isFolded ? "✓ קיפלתי" : "קיפלתי"}
+          </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-7 w-auto" />
           <div className="leading-tight">
@@ -109,19 +123,6 @@ export default function WorkshopTracker() {
             totalLeaves={totalLeaves}
             mode={pattern.config.mode}
           />
-
-          {/* Mark folded */}
-          <button
-            onClick={isFolded ? unmarkCurrentFolded : markCurrentFolded}
-            className="mt-4 w-full py-4 rounded-[var(--radius)] text-lg font-semibold transition-colors"
-            style={
-              isFolded
-                ? { background: "var(--sage)", color: "#fff" }
-                : { background: "var(--coral)", color: "#fff" }
-            }
-          >
-            {isFolded ? "✓ קופל — הקישו לביטול" : "סמנו עמוד כמקופל"}
-          </button>
         </section>
 
         {/* Right: preview + progress */}

@@ -10,7 +10,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { BookConfig, FoldingPattern } from "./types";
+import type { BookConfig, FoldingPattern, PageMeasurement } from "./types";
 
 export const DEFAULT_CONFIG: BookConfig = {
   firstPage: 41,
@@ -30,6 +30,8 @@ export type AppView = "config" | "tracker" | "print" | "patterns" | "editGrid";
 interface AppState {
   config: BookConfig;
   pattern: FoldingPattern | null;
+  /** Immutable snapshot of pages as originally generated, captured once in loadPattern - lets GridEditor's "Reset Page" revert manual edits. */
+  originalPages: PageMeasurement[] | null;
   thumbnail: string | null; // data URL of the source image
   view: AppView;
 
@@ -51,6 +53,8 @@ interface AppState {
   resetAll: () => void;
   /** Manual grid-editor correction: overwrite one leaf's fold marks (cm, will be sorted). */
   setLeafMarks: (leaf: number, marksCm: number[]) => void;
+  /** Revert one leaf's marks back to the originally generated values. */
+  resetLeafMarks: (leaf: number) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -58,6 +62,7 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       config: DEFAULT_CONFIG,
       pattern: null,
+      originalPages: null,
       thumbnail: null,
       view: "config",
       currentPage: 1,
@@ -69,6 +74,7 @@ export const useStore = create<AppState>()(
       loadPattern: (pattern, thumbnail) =>
         set({
           pattern,
+          originalPages: pattern.pages.map((p) => ({ ...p, marksCm: [...p.marksCm] })),
           thumbnail,
           config: pattern.config,
           view: "tracker",
@@ -123,10 +129,22 @@ export const useStore = create<AppState>()(
           return { pattern: { ...s.pattern, pages } };
         }),
 
+      resetLeafMarks: (leaf) =>
+        set((s) => {
+          if (!s.pattern || !s.originalPages) return s;
+          const original = s.originalPages.find((p) => p.leaf === leaf);
+          if (!original) return s;
+          const pages = s.pattern.pages.map((p) =>
+            p.leaf === leaf ? { ...p, marksCm: [...original.marksCm], isBlank: original.isBlank } : p
+          );
+          return { pattern: { ...s.pattern, pages } };
+        }),
+
       resetAll: () =>
         set({
           config: DEFAULT_CONFIG,
           pattern: null,
+          originalPages: null,
           thumbnail: null,
           view: "config",
           currentPage: 1,
@@ -140,6 +158,7 @@ export const useStore = create<AppState>()(
       partialize: (s) => ({
         config: s.config,
         pattern: s.pattern,
+        originalPages: s.originalPages,
         thumbnail: s.thumbnail,
         view: s.view,
         currentPage: s.currentPage,

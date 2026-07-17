@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import {
   cmToPixelY,
@@ -8,34 +8,34 @@ import {
   pixelYToCm,
   sampleColumnBounds,
 } from "@/lib/algorithm";
-import PageJump from "./PageJump";
+import { exportPatternPdf } from "@/lib/pdf/exportPdf";
+import type { FoldingPattern } from "@/lib/types";
 
-const ZOOM_MIN = 1;
-const ZOOM_MAX = 6;
-const ZOOM_STEP = 0.5;
+type ViewMode = "single" | "table";
 
-interface PendingStart {
-  leaf: number;
-  cm: number;
-}
+/** Fine reference grid drawn over the single-leaf image, every N cm. */
+const GRID_STEP_CM = 1;
+/** A single leaf column is narrow in the source image - blow it up to this width for precision editing. */
+const CANVAS_DISPLAY_WIDTH = 280;
 
 /**
- * Manual correction screen (WonderFold-style): zoom into the source image and
- * click to add/remove fold-mark bands on top of the auto-generated pattern.
- * Two clicks on the same leaf define a band (first = start, second = end);
- * clicking near an existing band's edge removes that whole band instead.
+ * Manual correction screen (WonderFold-style): jump to any page directly,
+ * see that page's image as a fine measurement grid, and edit its fold marks
+ * as an exact numeric list (add/remove/retype), or reset back to the
+ * originally generated values.
  */
 export default function GridEditor() {
-  const { pattern, thumbnail, config, setLeafMarks, setView } = useStore();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const { pattern, thumbnail, config, originalPages, setLeafMarks, resetLeafMarks, setView } =
+    useStore();
 
+  const [mode, setMode] = useState<ViewMode>("single");
+  const [currentLeaf, setCurrentLeaf] = useState(1);
+  const [leafInput, setLeafInput] = useState("1");
   const [imgSize, setImgSize] = useState<{ width: number; height: number } | null>(null);
-  const [zoom, setZoom] = useState(2);
-  const [pendingStart, setPendingStart] = useState<PendingStart | null>(null);
-  const [hoverLeaf, setHoverLeaf] = useState<number | null>(null);
-  const [jumpLeaf, setJumpLeaf] = useState(1);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const totalLeaves = pattern?.pages.length ?? 0;
 
   useEffect(() => {
     if (!thumbnail) return;
@@ -47,20 +47,11 @@ export default function GridEditor() {
     img.src = thumbnail;
   }, [thumbnail]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPendingStart(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useEffect(() => setLeafInput(String(currentLeaf)), [currentLeaf]);
 
-  const totalLeaves = pattern?.pages.length ?? 0;
-
-  // The algorithm's working grid (pattern.imageWidth/imageHeight) and the
-  // thumbnail are independently downscaled from the same source image, so a
-  // single uniform ratio rescales the algorithm's crop bounds (grid-pixel
-  // space) into the thumbnail's own pixel space.
+  // Same crop-bounds rescaling as before: the algorithm's working grid and the
+  // thumbnail are independently downscaled from the same source, so a single
+  // uniform ratio bridges grid-pixel space to thumbnail-pixel space.
   const cropBounds =
     pattern && imgSize && pattern.imageWidth > 0
       ? (() => {
@@ -71,147 +62,106 @@ export default function GridEditor() {
         })()
       : null;
 
-  const resolveLeaf = useCallback(
-    (px: number): number | null => {
-      if (!cropBounds || totalLeaves === 0) return null;
-      const colWidth = cropBounds.cropWidthThumb / totalLeaves;
-      if (colWidth <= 0) return null;
-      const col = Math.min(
-        totalLeaves - 1,
-        Math.max(0, Math.floor((px - cropBounds.cropStartXThumb) / colWidth))
-      );
-      const leafIndex = config.direction === "LTR" ? col : totalLeaves - 1 - col;
-      return leafIndex + 1;
-    },
-    [cropBounds, totalLeaves, config.direction]
-  );
+  const leafColumnBounds = useMemo(() => {
+    if (!cropBounds || totalLeaves === 0) return null;
+    const order = orderColumnsByDirection(totalLeaves, config.direction);
+    const col = order[currentLeaf - 1];
+    return sampleColumnBounds(cropBounds.cropWidthThumb, totalLeaves, col, cropBounds.cropStartXThumb);
+  }, [cropBounds, totalLeaves, config.direction, currentLeaf]);
 
-  // Draw the thumbnail + column dividers + existing bands + pending line.
+  const page = pattern?.pages[currentLeaf - 1] ?? null;
+  const marksCm = page?.marksCm ?? [];
+  const hasOriginal = !!originalPages?.some((p) => p.leaf === currentLeaf);
+
+  // Draw the single leaf's image slice, scaled up, with a fine cm grid and
+  // every current mark highlighted as a line at its height.
   useEffect(() => {
+    if (mode !== "single") return;
     const canvas = canvasRef.current;
     const img = imgRef.current;
-    if (!canvas || !img || !imgSize || !pattern || !cropBounds || totalLeaves === 0) return;
+    if (!canvas || !img || !imgSize || !leafColumnBounds) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const w = imgSize.width * zoom;
-    const h = imgSize.height * zoom;
-    canvas.width = w;
-    canvas.height = h;
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(img, 0, 0, w, h);
+    const { startX, endX } = leafColumnBounds;
+    const colWidthPx = Math.max(1, endX - startX + 1);
+    const scale = CANVAS_DISPLAY_WIDTH / colWidthPx;
+    const displayHeight = imgSize.height * scale;
 
-    const { cropStartXThumb, cropWidthThumb } = cropBounds;
-    const order = orderColumnsByDirection(totalLeaves, config.direction);
+    canvas.width = CANVAS_DISPLAY_WIDTH;
+    canvas.height = displayHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, startX, 0, colWidthPx, imgSize.height, 0, 0, canvas.width, displayHeight);
 
-    for (let i = 0; i < totalLeaves; i++) {
-      const leaf = i + 1;
-      const col = order[i];
-      const { startX, endX } = sampleColumnBounds(cropWidthThumb, totalLeaves, col, cropStartXThumb);
-      const x0 = startX * zoom;
-      const colW = (endX - startX + 1) * zoom;
-
-      if (leaf === hoverLeaf) {
-        ctx.globalAlpha = 0.12;
-        ctx.fillStyle = "#c79a3a";
-        ctx.fillRect(x0, 0, colW, h);
-      }
-
-      ctx.globalAlpha = 0.5;
-      ctx.strokeStyle = "#8a8577";
-      ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(74,84,104,0.25)";
+    ctx.fillStyle = "#4a5468";
+    ctx.font = "10px sans-serif";
+    ctx.lineWidth = 1;
+    for (let cm = 0; cm <= config.pageHeightCm; cm += GRID_STEP_CM) {
+      const y = cmToPixelY(cm, imgSize.height, config.verticalSpacingCm, config.pageHeightCm) * scale;
+      if (y < 0 || y > displayHeight) continue;
       ctx.beginPath();
-      ctx.moveTo(x0, 0);
-      ctx.lineTo(x0, h);
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
       ctx.stroke();
-
-      const marksCm = pattern.pages[i]?.marksCm ?? [];
-      ctx.globalAlpha = 0.4;
-      ctx.fillStyle = "#e2614a";
-      for (let m = 0; m + 1 < marksCm.length; m += 2) {
-        const yTop = cmToPixelY(marksCm[m], imgSize.height, config.verticalSpacingCm, config.pageHeightCm) * zoom;
-        const yBottom = cmToPixelY(marksCm[m + 1], imgSize.height, config.verticalSpacingCm, config.pageHeightCm) * zoom;
-        ctx.fillRect(x0, Math.min(yTop, yBottom), colW, Math.abs(yBottom - yTop));
-      }
-
-      if (pendingStart && pendingStart.leaf === leaf) {
-        const y = cmToPixelY(pendingStart.cm, imgSize.height, config.verticalSpacingCm, config.pageHeightCm) * zoom;
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = "#c79a3a";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.beginPath();
-        ctx.moveTo(x0, y);
-        ctx.lineTo(x0 + colW, y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
+      ctx.fillText(cm.toFixed(0), 2, Math.max(9, y - 2));
     }
-    ctx.globalAlpha = 1;
-  }, [imgSize, zoom, pattern, cropBounds, totalLeaves, config.direction, config.verticalSpacingCm, config.pageHeightCm, hoverLeaf, pendingStart]);
 
-  const canvasPixel = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#e2614a";
+    for (const cm of marksCm) {
+      const y = cmToPixelY(cm, imgSize.height, config.verticalSpacingCm, config.pageHeightCm) * scale;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+  }, [mode, imgSize, leafColumnBounds, marksCm, config.pageHeightCm, config.verticalSpacingCm]);
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!imgSize || !page || !leafColumnBounds) return;
     const canvas = e.currentTarget;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    return {
-      px: ((e.clientX - rect.left) * scaleX) / zoom,
-      py: ((e.clientY - rect.top) * scaleY) / zoom,
-    };
-  };
+    const displayY = (e.clientY - rect.top) * scaleY;
 
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!pattern || !imgSize) return;
-    const { px, py } = canvasPixel(e);
-    const leaf = resolveLeaf(px);
-    if (leaf === null) return;
-    const cm = pixelYToCm(py, imgSize.height, config.verticalSpacingCm, config.pageHeightCm, config.precisionMm);
+    const colWidthPx = Math.max(1, leafColumnBounds.endX - leafColumnBounds.startX + 1);
+    const scale = CANVAS_DISPLAY_WIDTH / colWidthPx;
+    const nativeY = displayY / scale;
+    const cm = pixelYToCm(nativeY, imgSize.height, config.verticalSpacingCm, config.pageHeightCm, config.precisionMm);
 
-    const existing = pattern.pages.find((p) => p.leaf === leaf)?.marksCm ?? [];
-    const toleranceCm = Math.max(0.3, 4 / zoom);
-    const hitIndex = findHitPairIndex(existing, cm, toleranceCm);
-    if (hitIndex !== null) {
-      const next = existing.filter((_, idx) => idx !== hitIndex && idx !== hitIndex + 1);
-      setLeafMarks(leaf, next);
-      setPendingStart(null);
-      return;
+    const toleranceCm = 0.3;
+    const hitIdx = marksCm.findIndex((v) => Math.abs(v - cm) <= toleranceCm);
+    if (hitIdx !== -1) {
+      setLeafMarks(currentLeaf, marksCm.filter((_, i) => i !== hitIdx));
+    } else {
+      setLeafMarks(currentLeaf, [...marksCm, cm]);
     }
-
-    if (!pendingStart || pendingStart.leaf !== leaf) {
-      setPendingStart({ leaf, cm });
-      return;
-    }
-
-    if (pendingStart.cm === cm) {
-      setPendingStart(null); // degenerate zero-height band - treat as cancel
-      return;
-    }
-
-    const newPair = [Math.min(pendingStart.cm, cm), Math.max(pendingStart.cm, cm)];
-    const next = config.mode === "MMF" ? newPair : [...existing, ...newPair];
-    setLeafMarks(leaf, next);
-    setPendingStart(null);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const { px } = canvasPixel(e);
-    setHoverLeaf(resolveLeaf(px));
+  const goToLeaf = (n: number) => {
+    if (totalLeaves === 0) return;
+    setCurrentLeaf(Math.min(Math.max(1, n), totalLeaves));
+    setMode("single");
   };
 
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setPendingStart(null);
+  const commitLeafInput = () => goToLeaf(parseInt(leafInput || "1", 10));
+
+  const handleMarkChange = (idx: number, value: string) => {
+    const num = parseFloat(value);
+    if (Number.isNaN(num)) return;
+    const next = [...marksCm];
+    next[idx] = num;
+    setLeafMarks(currentLeaf, next);
   };
 
-  const handleJump = (leaf: number) => {
-    const clamped = Math.min(Math.max(1, leaf), totalLeaves || 1);
-    setJumpLeaf(clamped);
-    if (!cropBounds || !containerRef.current || totalLeaves === 0) return;
-    const order = orderColumnsByDirection(totalLeaves, config.direction);
-    const col = order[clamped - 1];
-    const { startX } = sampleColumnBounds(cropBounds.cropWidthThumb, totalLeaves, col, cropBounds.cropStartXThumb);
-    containerRef.current.scrollTo({ left: Math.max(0, startX * zoom - 40), behavior: "smooth" });
+  const handleDeleteMark = (idx: number) => {
+    setLeafMarks(currentLeaf, marksCm.filter((_, i) => i !== idx));
+  };
+
+  const handleAddMark = () => {
+    const base = marksCm.length > 0 ? marksCm[marksCm.length - 1] + 1 : config.pageHeightCm / 2;
+    setLeafMarks(currentLeaf, [...marksCm, Math.min(config.pageHeightCm, Math.max(0, base))]);
   };
 
   if (!pattern) return null;
@@ -242,75 +192,245 @@ export default function GridEditor() {
         </button>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 pt-5 space-y-4">
-        <div
-          className="rounded-[var(--radius)] p-4 border text-sm"
-          style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
-        >
-          <p>
-            לחיצה ראשונה על עלה מסמנת נקודת התחלה, לחיצה שנייה על אותו עלה
-            מוסיפה סימון קיפול. לחיצה קרובה לגבול סימון קיים מוחקת אותו.
-            {config.mode === "MMF" &&
-              " במצב סימון וקיפול (MMF) כל עלה מקבל סימון אחד בלבד — סימון חדש יחליף את הקיים."}
-          </p>
-          {pendingStart && (
-            <p className="mt-1 font-semibold" style={{ color: "var(--coral-deep)" }}>
-              ממתין ללחיצה שנייה על עלה {pendingStart.leaf} (התחלה: {pendingStart.cm.toFixed(1)} סים) — Esc לביטול.
-            </p>
-          )}
-        </div>
+      <main className="max-w-3xl mx-auto px-4 pt-5 space-y-4">
+        {/* Top nav: jump to any page directly, plus table/PDF toggles. */}
+        <PageNav
+          current={currentLeaf}
+          total={totalLeaves}
+          leafInput={leafInput}
+          onLeafInputChange={setLeafInput}
+          onCommit={commitLeafInput}
+          onPrev={() => goToLeaf(currentLeaf - 1)}
+          onNext={() => goToLeaf(currentLeaf + 1)}
+          extra={
+            <>
+              <button
+                onClick={() => setMode(mode === "table" ? "single" : "table")}
+                className="text-sm px-3 py-2 rounded-lg font-semibold"
+                style={
+                  mode === "table"
+                    ? { background: "var(--ink)", color: "#fff" }
+                    : { border: "1px solid var(--line)" }
+                }
+              >
+                טבלה
+              </button>
+              <button
+                onClick={() => exportPatternPdf(pattern, "תבנית")}
+                className="text-sm px-3 py-2 rounded-lg border"
+                style={{ borderColor: "var(--line)" }}
+              >
+                ייצוא PDF
+              </button>
+            </>
+          }
+        />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
-              className="w-9 h-9 rounded-lg border font-semibold"
-              style={{ borderColor: "var(--line)" }}
-            >
-              −
-            </button>
-            <span className="text-sm tabular w-14 text-center">{Math.round(zoom * 100)}%</span>
-            <button
-              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
-              className="w-9 h-9 rounded-lg border font-semibold"
-              style={{ borderColor: "var(--line)" }}
-            >
-              +
-            </button>
-          </div>
-          <PageJump current={jumpLeaf} total={totalLeaves} onJump={handleJump} />
-        </div>
-
-        {!thumbnail ? (
-          <p className="text-sm text-[var(--ink-soft)]">אין תמונת מקור זמינה לעריכה.</p>
+        {mode === "table" ? (
+          <TableView pattern={pattern} activeLeaf={currentLeaf} onSelect={goToLeaf} />
         ) : (
-          <div
-            ref={containerRef}
-            className="overflow-auto rounded-[var(--radius)] border"
-            style={{ borderColor: "var(--line)", maxHeight: "70vh", background: "var(--paper-2)" }}
-          >
-            <canvas
-              ref={canvasRef}
-              onClick={handleClick}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={() => setHoverLeaf(null)}
-              onContextMenu={handleContextMenu}
-              style={{ cursor: "crosshair", display: "block" }}
-              aria-label="עורך סימוני קיפול"
-            />
+          <div className="grid sm:grid-cols-[220px_1fr] gap-4">
+            {/* Left panel: exact numeric fold list for this page. */}
+            <div
+              className="rounded-[var(--radius)] p-4 border space-y-2"
+              style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
+            >
+              <p className="font-semibold mb-1">עלה {currentLeaf}</p>
+              {marksCm.length === 0 && (
+                <p className="text-sm text-[var(--ink-soft)]">אין סימונים בעלה זה.</p>
+              )}
+              {marksCm.map((v, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-sm text-[var(--ink-soft)] w-16 shrink-0">סימון {i + 1}</span>
+                  <input
+                    type="number"
+                    step={0.1}
+                    value={v}
+                    onChange={(e) => handleMarkChange(i, e.target.value)}
+                    className="w-full px-2 py-1.5 rounded-lg border text-center tabular"
+                    style={{ borderColor: "var(--line)", background: "var(--paper)" }}
+                  />
+                  <button
+                    onClick={() => handleDeleteMark(i)}
+                    aria-label="מחיקת סימון"
+                    className="w-7 h-7 shrink-0 rounded-full text-sm"
+                    style={{ background: "var(--line)", color: "var(--ink-soft)" }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              <button
+                onClick={handleAddMark}
+                className="w-full mt-2 py-2 rounded-lg border text-sm font-semibold"
+                style={{ borderColor: "var(--line)" }}
+              >
+                הוסף סימון
+              </button>
+              <button
+                onClick={() => resetLeafMarks(currentLeaf)}
+                disabled={!hasOriginal}
+                className="w-full py-2 rounded-lg border text-sm font-semibold disabled:opacity-40"
+                style={{ borderColor: "var(--line)" }}
+              >
+                איפוס עמוד
+              </button>
+              <button
+                onClick={() => setView("tracker")}
+                className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
+                style={{ background: "var(--coral)" }}
+              >
+                סיום
+              </button>
+            </div>
+
+            {/* Single-page image: fine cm grid, marks highlighted, click to add/remove. */}
+            <div
+              className="rounded-[var(--radius)] border flex items-start justify-center p-3"
+              style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
+            >
+              {!thumbnail ? (
+                <p className="text-sm text-[var(--ink-soft)] py-8">אין תמונת מקור זמינה לעריכה.</p>
+              ) : (
+                <canvas
+                  ref={canvasRef}
+                  onClick={handleCanvasClick}
+                  style={{ cursor: "crosshair", display: "block" }}
+                  aria-label="עורך סימוני קיפול לעלה הנוכחי"
+                />
+              )}
+            </div>
           </div>
         )}
+
+        {/* Bottom nav duplicate, matching the top - jump to any page from here too. */}
+        <PageNav
+          current={currentLeaf}
+          total={totalLeaves}
+          leafInput={leafInput}
+          onLeafInputChange={setLeafInput}
+          onCommit={commitLeafInput}
+          onPrev={() => goToLeaf(currentLeaf - 1)}
+          onNext={() => goToLeaf(currentLeaf + 1)}
+        />
       </main>
     </div>
   );
 }
 
-/** Index of the first mark in the pair whose top/bottom boundary is within tolerance of `cm`, or null. */
-function findHitPairIndex(marksCm: number[], cm: number, toleranceCm: number): number | null {
-  for (let i = 0; i + 1 < marksCm.length; i += 2) {
-    if (Math.abs(cm - marksCm[i]) <= toleranceCm || Math.abs(cm - marksCm[i + 1]) <= toleranceCm) {
-      return i;
-    }
-  }
-  return null;
+function PageNav({
+  current,
+  total,
+  leafInput,
+  onLeafInputChange,
+  onCommit,
+  onPrev,
+  onNext,
+  extra,
+}: {
+  current: number;
+  total: number;
+  leafInput: string;
+  onLeafInputChange: (v: string) => void;
+  onCommit: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  extra?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <NavArrow onClick={onPrev} disabled={current <= 1}>
+        ‹
+      </NavArrow>
+      <input
+        type="number"
+        min={1}
+        max={total}
+        value={leafInput}
+        onChange={(e) => onLeafInputChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => e.key === "Enter" && onCommit()}
+        className="w-20 px-2 py-2 rounded-lg border text-center tabular"
+        style={{ borderColor: "var(--line)", background: "var(--paper)" }}
+      />
+      <span className="text-sm text-[var(--ink-soft)] tabular">/ {total}</span>
+      <NavArrow onClick={onNext} disabled={current >= total}>
+        ›
+      </NavArrow>
+      {extra}
+    </div>
+  );
+}
+
+function NavArrow({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-10 h-10 rounded-lg border font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+      style={{ borderColor: "var(--line)", background: "var(--paper)" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TableView({
+  pattern,
+  activeLeaf,
+  onSelect,
+}: {
+  pattern: FoldingPattern;
+  activeLeaf: number;
+  onSelect: (leaf: number) => void;
+}) {
+  return (
+    <div
+      className="rounded-[var(--radius)] border overflow-auto"
+      style={{ borderColor: "var(--line)", maxHeight: "60vh" }}
+    >
+      <table className="w-full text-sm">
+        <thead className="sticky top-0" style={{ background: "var(--paper-2)" }}>
+          <tr>
+            <th className="p-2 text-right font-semibold">עלה</th>
+            <th className="p-2 text-right font-semibold">עמוד</th>
+            <th className="p-2 text-right font-semibold">סימונים (סיו֢ם)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pattern.pages.map((p) => (
+            <tr
+              key={p.leaf}
+              onClick={() => onSelect(p.leaf)}
+              className="cursor-pointer border-t"
+              style={{
+                borderColor: "var(--line)",
+                background: p.leaf === activeLeaf ? "var(--paper-2)" : "transparent",
+              }}
+            >
+              <td className="p-2 tabular">{p.leaf}</td>
+              <td className="p-2 tabular">{p.page}</td>
+              <td className="p-2 tabular">
+                {/* dir="ltr" so the browser's bidi algorithm doesn't visually
+                    reorder a comma-joined list of LTR numeric runs within an
+                    RTL row (e.g. "7.0, 9.5" rendering as "9.5, 7.0"). */}
+                <span dir="ltr">
+                  {p.isBlank ? "—" : p.marksCm.map((v) => v.toFixed(1)).join(", ")}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
@@ -29,10 +29,24 @@ const PRECISION_OPTIONS: { label: string; mm: number }[] = [
 
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
 export default function ConfigPanel() {
-  const { config, setConfig, loadPattern, pattern, setView } = useStore();
+  const { config, setConfig, loadPattern, pattern, sourceImage, setView } = useStore();
   const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Restore the previously-uploaded image (and its preview) when returning to
+  // this screen without a fresh upload - e.g. generate a pattern, then click
+  // "הגדרות" to tweak page height and come back. Runs once on mount; a
+  // genuinely new file picked via onFile always takes priority afterward.
+  useEffect(() => {
+    if (file || !sourceImage) return;
+    setPreviewUrl(sourceImage);
+    fetch(sourceImage)
+      .then((r) => r.blob())
+      .then((blob) => setFile(new File([blob], "uploaded-image.png", { type: blob.type || "image/png" })))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGate, setShowGate] = useState(false);
@@ -100,12 +114,17 @@ export default function ConfigPanel() {
     }
     setBusy(true);
     try {
-      const [grid, thumb] = await Promise.all([
+      const [grid, thumb, sourceImg] = await Promise.all([
         extractPixelGrid(file),
         makeThumbnail(file),
+        // Same maxEdge as extractPixelGrid, so this lines up 1:1 with the
+        // algorithm's own working resolution - sharp enough for GridEditor's
+        // per-leaf zoom, and also doubles as the "remembered image" restored
+        // in ConfigPanel when navigating back without a fresh upload.
+        makeThumbnail(file, 1600),
       ]);
       const pattern = generateFoldingPattern(grid, config);
-      loadPattern(pattern, thumb);
+      loadPattern(pattern, thumb, sourceImg);
       setView("tracker");
     } catch (e) {
       setError(e instanceof Error ? e.message : "יצירת התבנית נכשלה. נסו שוב.");

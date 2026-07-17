@@ -32,7 +32,9 @@ interface AppState {
   pattern: FoldingPattern | null;
   /** Immutable snapshot of pages as originally generated, captured once in loadPattern - lets GridEditor's "Reset Page" revert manual edits. */
   originalPages: PageMeasurement[] | null;
-  thumbnail: string | null; // data URL of the source image
+  thumbnail: string | null; // small (480px) data URL, for lightweight previews
+  /** Higher-resolution (up to 1600px, matching the algorithm's own working image) data URL - used by GridEditor for precision editing, and to restore ConfigPanel's preview when navigating back to settings without a fresh upload. */
+  sourceImage: string | null;
   view: AppView;
 
   // Tracker progress
@@ -41,7 +43,7 @@ interface AppState {
 
   // actions
   setConfig: (patch: Partial<BookConfig>) => void;
-  loadPattern: (pattern: FoldingPattern, thumbnail: string | null) => void;
+  loadPattern: (pattern: FoldingPattern, thumbnail: string | null, sourceImage?: string | null) => void;
   setView: (view: AppView) => void;
 
   goToPage: (page: number) => void;
@@ -64,6 +66,7 @@ export const useStore = create<AppState>()(
       pattern: null,
       originalPages: null,
       thumbnail: null,
+      sourceImage: null,
       view: "config",
       currentPage: 1,
       foldedPages: [],
@@ -71,11 +74,12 @@ export const useStore = create<AppState>()(
       setConfig: (patch) =>
         set((s) => ({ config: { ...s.config, ...patch } })),
 
-      loadPattern: (pattern, thumbnail) =>
+      loadPattern: (pattern, thumbnail, sourceImage = null) =>
         set({
           pattern,
           originalPages: pattern.pages.map((p) => ({ ...p, marksCm: [...p.marksCm] })),
           thumbnail,
+          sourceImage,
           config: pattern.config,
           view: "tracker",
           currentPage: 1,
@@ -146,6 +150,7 @@ export const useStore = create<AppState>()(
           pattern: null,
           originalPages: null,
           thumbnail: null,
+          sourceImage: null,
           view: "config",
           currentPage: 1,
           foldedPages: [],
@@ -160,6 +165,7 @@ export const useStore = create<AppState>()(
         pattern: s.pattern,
         originalPages: s.originalPages,
         thumbnail: s.thumbnail,
+        sourceImage: s.sourceImage,
         view: s.view,
         currentPage: s.currentPage,
         foldedPages: s.foldedPages,

@@ -127,6 +127,19 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg }: Book
   const endpaperAngleBack = -endpaperHalfAngle;
   const endpaperAngleFront = endpaperHalfAngle;
 
+  // Blank (or partly-blank) leaves recede close to the spine at the heights
+  // they have no mark, opening a wedge-shaped gap between neighboring leaves
+  // fanned at different angles - wide enough, at typical opening angles, to
+  // show raw canvas background straight through. A spine core fills that
+  // gap with something that reads as the book's actual binding, the way a
+  // real fanned book shows its spine through the gaps between splayed pages.
+  // Sized proportionally to sin(coverHalfAngle): the wedge gap between two
+  // leaves at a given depth grows with their angular separation, and must
+  // shrink to ~0 as the book approaches fully closed (angle 0), where leaves
+  // are nearly parallel and there is no real gap to fill - a fixed radius
+  // stayed oversized at small angles and stuck out past the closed book.
+  const spineRadius = Math.max(0.015, fullDepth * 0.5 * Math.sin(coverHalfAngle));
+
   // Footprint of the fanned block on the table (X = sideways spread, Z = forward reach).
   // Floored so the stand doesn't visually vanish as the book approaches fully closed.
   const standWidth = Math.max(
@@ -138,6 +151,14 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg }: Book
 
   return (
     <group>
+      {/* Spine core: sits exactly on the fan's shared axis, so it's always
+          hidden behind any leaf that actually reaches out, and only shows
+          through the gap where a run of blank leaves stays folded flat. */}
+      <mesh position={[0, 0, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[spineRadius, spineRadius, pageHeightCm, 16]} />
+        <meshStandardMaterial color={COVER_COLOR} roughness={0.5} metalness={0.1} />
+      </mesh>
+
       {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}
       <LeafFan geometries={foldedGeometries} angles={angles} pageHeightCm={pageHeightCm} color={PAGE_COLOR} />
 

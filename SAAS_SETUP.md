@@ -23,9 +23,18 @@ Project settings → **Service accounts** → "Generate new private key" → י�
 
 ## 4. Grow (Meshulam) — תשלומים
 1. פנו לתמיכה של Grow (https://grow.business) לקבלת חשבון + `pageCode` + `userId`.
-2. מלאו ב-`.env.local`: `GROW_PAGE_CODE`, `GROW_USER_ID`.
+2. מלאו ב-`.env.local` (ובהמשך ב-Vercel): `GROW_PAGE_CODE`, `GROW_USER_ID`.
 3. השאירו `GROW_API_BASE` מכוון לסביבת ה-sandbox עד שתאמתו עסקה אמיתית שם, ורק
    אז עברו לסביבת הפרודקשן (מוזכר כהערה ב-`.env.local.example`).
+4. בדף ה-Webhooks בפאנל הניהול של Grow, צרו וובהוק חדש:
+   - **לינק לעדכון השרת**: `https://mekapele.com/api/webhooks/grow`
+   - **סוג הוובהוק**: עדכון לאחר ביצוע עסקה
+   - **דיווחים**: כל העסקאות (לא כולל ריצות הוראת קבע)
+   - **צורת שליחת הנתונים**: JSON
+   - **סטטוס**: פעיל
+   - העתיקו את ה-**webhook key** שמוצג בטופס למשתנה `GROW_WEBHOOK_KEY`. בלעדיו,
+     ה-webhook נכשל במכוון (fail closed) — כדי שאף אחד לא יוכל לקרוא ל-URL
+     הפומבי הזה ולזכות לבבות לעצמו בלי לשלם.
 
 ⚠️ **חשוב**: אינטגרציית Grow (`lib/payment/grow.ts`, `app/api/webhooks/grow/route.ts`)
 נכתבה לפי התיעוד הרשמי של Grow, אך **לא נבדקה מול חשבון Grow אמיתי** (לא היו זמינים

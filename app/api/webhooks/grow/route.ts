@@ -8,6 +8,12 @@
 // cField2 = heartsToAdd, cField3 = packageId), which are simply what we
 // handed Grow when starting the payment and Grow echoes back verbatim.
 //
+// Authenticity: this URL is public, so anyone could POST here. Grow's
+// dashboard-configured webhook includes a `webhookKey` field in the body —
+// we reject anything that doesn't match GROW_WEBHOOK_KEY (fail closed if
+// that env var isn't set at all, same policy the old Stripe placeholder used
+// for its signing secret).
+//
 // Idempotency: recordCompletedPayment (lib/firestore/transactions.ts) uses
 // growProcessId as the Firestore document id inside a transaction, so a
 // duplicate delivery of the same event is a guaranteed no-op — it can never
@@ -20,6 +26,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { recordCompletedPayment } from "@/lib/firestore/transactions";
 import { approveTransaction } from "@/lib/payment/grow";
 
@@ -40,10 +47,30 @@ async function parseBody(req: NextRequest): Promise<Record<string, unknown>> {
   }
 }
 
+/** Constant-time string compare so a mismatched key can't be timed/guessed. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
+
 export async function POST(req: NextRequest) {
+  const expectedKey = process.env.GROW_WEBHOOK_KEY;
+  if (!expectedKey) {
+    // Misconfiguration — fail closed rather than accept unverified payloads.
+    console.error("Grow webhook: GROW_WEBHOOK_KEY is not configured.");
+    return NextResponse.json({ error: "Webhook not configured." }, { status: 500 });
+  }
+
   const body = await parseBody(req);
 
   const data = (body.data as Record<string, unknown> | undefined) ?? body;
+  const receivedKey = String(body.webhookKey ?? data.webhookKey ?? "");
+  if (!receivedKey || !safeEqual(receivedKey, expectedKey)) {
+    console.error("Grow webhook: invalid or missing webhookKey.");
+    return NextResponse.json({ error: "Invalid webhook key." }, { status: 401 });
+  }
+
   const err = (body.err ?? data.err) as string | undefined;
 
   if (err !== "0") {

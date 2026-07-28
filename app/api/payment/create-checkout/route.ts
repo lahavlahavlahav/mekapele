@@ -1,10 +1,12 @@
 // =============================================================================
 // POST /api/payment/create-checkout
 // -----------------------------------------------------------------------------
-// Starts a Grow payment process for a hearts package and returns the payment
-// page URL for the browser to redirect to. The buyer's identity comes from
-// their verified Firebase ID token (never trusted from the request body) so a
-// caller can never trigger a purchase credited to someone else's account.
+// Single responsibility: ask Grow for a payment process and hand the browser
+// the payment page URL to redirect to. Nothing here touches Firestore — the
+// webhook (app/api/webhooks/grow) owns every write, once payment is actually
+// confirmed. The buyer's identity comes from their verified Firebase ID token
+// (never trusted from the request body) so a caller can never trigger a
+// purchase credited to someone else's account.
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +15,6 @@ import { hit } from "@/lib/security/rateLimit";
 import { corsHeaders, isOriginAllowed } from "@/lib/security/cors";
 import { getHeartPackage } from "@/lib/pricing";
 import { createPaymentProcess } from "@/lib/payment/grow";
-import { createTransaction } from "@/lib/firestore/transactions";
 
 export const runtime = "nodejs";
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN || origin || "";
 
   try {
-    const { paymentUrl, growProcessId } = await createPaymentProcess({
+    const { paymentUrl } = await createPaymentProcess({
       sum: pkg.priceIls,
       description: `${pkg.hearts} לבבות — Mekapele`,
       successUrl: `${siteOrigin}/?purchase=success`,
@@ -81,15 +82,8 @@ export async function POST(req: NextRequest) {
       notifyUrl: `${siteOrigin}/api/webhooks/grow`,
       cField1: user.uid,
       cField2: String(pkg.hearts),
+      cField3: pkg.id,
       email: user.email ?? undefined,
-    });
-
-    await createTransaction({
-      userId: user.uid,
-      packageId: pkg.id,
-      heartsAdded: pkg.hearts,
-      amount: pkg.priceIls,
-      growProcessId,
     });
 
     return NextResponse.json({ paymentUrl }, { status: 200, headers: cors });

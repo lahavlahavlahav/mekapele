@@ -1,82 +1,67 @@
 // =============================================================================
 // FIRESTORE — payment transaction records  (Admin SDK, server-only)
 // -----------------------------------------------------------------------------
-// transactions/{transactionId}:
-//   userId, packageId, heartsAdded, amount, status ('pending'|'completed'),
+// transactions/{growProcessId}:
+//   userId, packageId, heartsAdded, amount, status ('completed'),
 //   growProcessId, createdAt
 //
-// Created (status: 'pending') when a checkout link is generated, then flipped
-// to 'completed' by the Grow webhook once payment is confirmed. Clients never
-// read/write this collection directly — see firestore.rules.
+// create-checkout never touches Firestore — it only talks to Grow and hands
+// the browser a payment URL. This module is used exclusively by the webhook,
+// which is the sole place a transaction record is created, using Grow's own
+// process id AS the document id: writing a doc that already exists is a
+// no-op, so a duplicate webhook delivery can never double-credit hearts.
 // =============================================================================
 
 import "server-only";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 
-export type TransactionStatus = "pending" | "completed";
-
 export interface TransactionRecord {
   userId: string;
   packageId: string;
   heartsAdded: number;
   amount: number;
-  status: TransactionStatus;
+  status: "completed";
   growProcessId: string;
   createdAt: number;
 }
 
-/** Create a pending transaction right after Grow issues a payment process id. */
-export async function createTransaction(
-  params: Omit<TransactionRecord, "status" | "createdAt">
-): Promise<string> {
-  const ref = await getAdminDb()
-    .collection("transactions")
-    .add({
-      ...params,
-      status: "pending" satisfies TransactionStatus,
-      createdAt: Date.now(),
-    });
-  return ref.id;
-}
-
-export interface CompleteTransactionResult {
+export interface RecordPaymentResult {
   record: TransactionRecord;
-  /** True if this call actually granted hearts; false if already processed (duplicate webhook). */
+  /** True if this call actually granted hearts; false if already recorded (duplicate webhook). */
   granted: boolean;
 }
 
 /**
- * Atomically: find the pending transaction for this Grow process id, flip it
- * to 'completed', and credit the user's hearts — all in one Firestore
- * transaction so a duplicate webhook delivery can never double-credit.
- * Returns null if no transaction with this growProcessId exists at all.
+ * Idempotently record a confirmed Grow payment and credit the user's hearts,
+ * atomically, keyed by growProcessId. Safe to call multiple times with the
+ * same growProcessId — only the first call grants hearts.
  */
-export async function completeTransactionByGrowProcessId(
-  growProcessId: string
-): Promise<CompleteTransactionResult | null> {
+export async function recordCompletedPayment(
+  growProcessId: string,
+  params: Omit<TransactionRecord, "status" | "createdAt" | "growProcessId">
+): Promise<RecordPaymentResult> {
   const db = getAdminDb();
+  const ref = db.collection("transactions").doc(growProcessId);
 
   return db.runTransaction(async (tx) => {
-    const query = db
-      .collection("transactions")
-      .where("growProcessId", "==", growProcessId)
-      .limit(1);
-    const snap = await tx.get(query);
-    if (snap.empty) return null;
-
-    const doc = snap.docs[0];
-    const data = doc.data() as TransactionRecord;
-
-    if (data.status === "completed") {
-      return { record: data, granted: false }; // duplicate delivery — idempotent no-op
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      return { record: snap.data() as TransactionRecord, granted: false };
     }
 
-    tx.update(doc.ref, { status: "completed" satisfies TransactionStatus });
-    tx.update(db.collection("users").doc(data.userId), {
-      hearts: FieldValue.increment(data.heartsAdded),
+    const record: TransactionRecord = {
+      ...params,
+      status: "completed",
+      growProcessId,
+      createdAt: Date.now(),
+    };
+
+    tx.set(ref, record);
+    tx.update(db.collection("users").doc(params.userId), {
+      hearts: FieldValue.increment(params.heartsAdded),
     });
 
-    return { record: data, granted: true };
+    return { record, granted: true };
   });
 }

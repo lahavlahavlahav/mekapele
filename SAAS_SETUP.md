@@ -56,11 +56,14 @@ Project settings → **Service accounts** → "Generate new private key" → י�
   מה שהלקוח טוען.
 - חבילות רכישה (`lib/pricing.ts`): 1 לב = ₪19, 5 לבבות = ₪75 (הכי משתלם),
   10 לבבות = ₪150.
-- זרימת תשלום: `POST /api/payment/create-checkout` יוצר תהליך תשלום ב-Grow ורשומת
-  `transactions/{id}` במצב `pending`. אחרי תשלום מוצלח, Grow קורא ל-
-  `POST /api/webhooks/grow`, שמעדכן את הרשומה ל-`completed` ומזרים לבבות
-  אטומית (`FieldValue.increment`) — הכל בטרנזקציה אחת, כך שקריאת webhook כפולה
-  לא תזכה פעמיים.
+- זרימת תשלום, מופרדת לשני קבצים באחריות ברורה:
+  - `POST /api/payment/create-checkout` — אחראי **רק** על הבקשה ל-Grow והחזרת
+    ה-URL ללקוח. לא נוגע ב-Firestore בכלל.
+  - `POST /api/webhooks/grow` — אחראי על קבלת ה-webhook, בדיקת ה-idempotency,
+    ויצירת/עדכון ה-Firestore. כשתשלום מאושר, הוא יוצר את `transactions/{growProcessId}`
+    (עם ה-id של תהליך התשלום מ-Grow עצמו כמזהה המסמך) ומזרים לבבות אטומית
+    (`FieldValue.increment`) — הכל באותה טרנזקציית Firestore, כך שאם Grow שולח
+    את אותו webhook פעמיים (דבר נפוץ), הכתיבה השנייה היא no-op ולא תזכה פעמיים.
 
 ## הערה חשובה
 לא יכולתי לבדוק את נתיב ה-Firebase או ה-Grow החי מהסביבה שלי כי הם דורשים את

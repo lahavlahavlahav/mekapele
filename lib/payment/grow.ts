@@ -43,9 +43,15 @@ export interface CreatePaymentProcessParams {
   successUrl: string;
   cancelUrl: string;
   notifyUrl: string;
-  /** Grow's generic custom-data slots, echoed back verbatim on the webhook. */
+  /**
+   * Grow's generic custom-data slots, echoed back verbatim on the webhook.
+   * The webhook handler is the only place these get read back — create-checkout
+   * never writes anything to Firestore, so this is the sole channel carrying
+   * what to credit once payment is confirmed.
+   */
   cField1: string; // our Firebase uid
   cField2: string; // hearts to add, as a string
+  cField3: string; // packageId, for the transaction record
   fullName?: string;
   email?: string;
 }
@@ -74,6 +80,7 @@ export async function createPaymentProcess(
   if (params.email) form.set("email", params.email);
   form.set("cField1", params.cField1);
   form.set("cField2", params.cField2);
+  form.set("cField3", params.cField3);
 
   const res = await fetch(`${apiBase()}/createPaymentProcess`, {
     method: "POST",

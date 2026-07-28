@@ -1,20 +1,26 @@
 // =============================================================================
 // POST /api/webhooks/grow  — Grow (Meshulam) payment notification
 // -----------------------------------------------------------------------------
-// Grow calls this URL (the `notifyUrl` we passed to createPaymentProcess) once
-// a payment finishes. This is a public URL — anyone can POST here, so we never
-// credit hearts from the raw payload alone. The payload's `cField1`/`cField2`
-// are only used for logging/cross-checks; the actual credit amount + owning
-// user come from OUR OWN pending transaction record (looked up by the Grow
-// process id), which only we could have created in create-checkout.
+// Single responsibility: receive Grow's payment notification, and — once and
+// only once per growProcessId — update Firestore (credit hearts, record the
+// transaction). create-checkout never writes to Firestore, so everything the
+// user bought comes from THIS payload's customFields (cField1 = userId,
+// cField2 = heartsToAdd, cField3 = packageId), which are simply what we
+// handed Grow when starting the payment and Grow echoes back verbatim.
 //
-// ⚠️ Same caveat as lib/payment/grow.ts: not live-tested against a real Grow
-// account. Confirm the payload shape (JSON vs form-encoded, exact field
-// names/nesting) against a real sandbox delivery before going live.
+// Idempotency: recordCompletedPayment (lib/firestore/transactions.ts) uses
+// growProcessId as the Firestore document id inside a transaction, so a
+// duplicate delivery of the same event is a guaranteed no-op — it can never
+// credit hearts twice.
+//
+// ⚠️ Not live-tested against a real Grow account (no credentials were
+// available while building this). Confirm the payload shape (JSON vs
+// form-encoded, exact field names/nesting) against a real sandbox delivery
+// before going live — see lib/payment/grow.ts and SAAS_SETUP.md.
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { completeTransactionByGrowProcessId } from "@/lib/firestore/transactions";
+import { recordCompletedPayment } from "@/lib/firestore/transactions";
 import { approveTransaction } from "@/lib/payment/grow";
 
 export const runtime = "nodejs";
@@ -41,39 +47,33 @@ export async function POST(req: NextRequest) {
   const err = (body.err ?? data.err) as string | undefined;
 
   if (err !== "0") {
-    // Not a successful payment — acknowledge without granting anything.
+    // Not a successful payment — acknowledge without touching Firestore.
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
   const growProcessId = String(data.processId ?? data.processToken ?? "");
-  if (!growProcessId) {
-    return NextResponse.json(
-      { error: "Missing process id in webhook payload." },
-      { status: 400 }
-    );
-  }
-
-  // For logging/cross-check only — the authoritative amounts come from our
-  // own transaction record below, keyed by growProcessId.
   const customFields =
     (data.customFields as Record<string, unknown> | undefined) ?? {};
-  const claimedUserId = customFields.cField1;
-  const claimedHearts = customFields.cField2;
+  const userId = String(customFields.cField1 ?? "");
+  const heartsAdded = Number(customFields.cField2 ?? 0);
+  const packageId = String(customFields.cField3 ?? "");
+  const amount = Number(data.sum ?? 0);
 
-  const result = await completeTransactionByGrowProcessId(growProcessId);
-  if (!result) {
-    console.error(
-      `Grow webhook: no transaction found for process ${growProcessId} (claimed user=${claimedUserId} hearts=${claimedHearts})`
-    );
-    return NextResponse.json(
-      { error: "Unknown transaction." },
-      { status: 404 }
-    );
+  if (!growProcessId || !userId || !Number.isFinite(heartsAdded) || heartsAdded <= 0) {
+    console.error("Grow webhook: malformed payload", { growProcessId, userId, heartsAdded });
+    return NextResponse.json({ error: "Malformed payload." }, { status: 400 });
   }
 
-  if (result.granted) {
+  const { record, granted } = await recordCompletedPayment(growProcessId, {
+    userId,
+    packageId,
+    heartsAdded,
+    amount,
+  });
+
+  if (granted) {
     console.log(
-      `Grow webhook: credited ${result.record.heartsAdded} hearts to ${result.record.userId} (process ${growProcessId})`
+      `Grow webhook: credited ${record.heartsAdded} hearts to ${record.userId} (process ${growProcessId})`
     );
   }
 

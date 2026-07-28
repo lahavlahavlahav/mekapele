@@ -1,11 +1,11 @@
-# הגדרת SaaS — Firebase, אבטחה ותשלומים
+# הגדרת SaaS — Firebase, לבבות ותשלומים (Grow)
 
-המסמך הזה מסביר מה צריך להגדיר כדי שהאתר יעבוד עם התחברות, מסד נתונים וגידור תשלום.
-**הקוד כולו כתוב ומוכן — חסר רק לחבר מפתחות משלך.**
+המסמך הזה מסביר מה צריך להגדיר כדי שהאתר יעבוד עם התחברות, מסד נתונים ותשלומים אמיתיים.
+**הקוד כולו כתוב ומוכן — חסר רק לחבר מפתחות משלכם.**
 
 ## 1. יצירת פרויקט Firebase
 1. היכנסו ל-https://console.firebase.google.com → "Add project".
-2. הפעילו **Authentication** → Sign-in method → **Google** (זו השיטה היחידה שהאתר תומך בה).
+2. הפעילו **Authentication** → Sign-in method → **Google** וגם **Email/Password**.
 3. הפעילו **Firestore Database** (מצב Production).
 
 ## 2. מפתחות לצד הלקוח (פומביים — בטוחים בדפדפן)
@@ -21,36 +21,47 @@ Project settings → **Service accounts** → "Generate new private key" → י�
 
 ⚠️ אסור בשום אופן לחשוף את המפתח הזה בצד הלקוח או לדחוף אותו ל-GitHub.
 
-## 4. הגדרת משתני הסביבה ב-Vercel
+## 4. Grow (Meshulam) — תשלומים
+1. פנו לתמיכה של Grow (https://grow.business) לקבלת חשבון + `pageCode` + `userId`.
+2. מלאו ב-`.env.local`: `GROW_PAGE_CODE`, `GROW_USER_ID`.
+3. השאירו `GROW_API_BASE` מכוון לסביבת ה-sandbox עד שתאמתו עסקה אמיתית שם, ורק
+   אז עברו לסביבת הפרודקשן (מוזכר כהערה ב-`.env.local.example`).
+
+⚠️ **חשוב**: אינטגרציית Grow (`lib/payment/grow.ts`, `app/api/webhooks/grow/route.ts`)
+נכתבה לפי התיעוד הרשמי של Grow, אך **לא נבדקה מול חשבון Grow אמיתי** (לא היו זמינים
+פרטי התחברות בזמן הפיתוח). לפני קבלת תשלומים אמיתיים:
+- הריצו עסקת בדיקה אחת בסביבת ה-sandbox ובדקו את התשובה בפועל מ-`createPaymentProcess`
+  ואת ה-payload שמתקבל ב-webhook — ודאו ששמות השדות תואמים למה שהקוד מצפה לו.
+- שימו לב במיוחד לפורמט הבקשה (form-urlencoded לעומת JSON) ולפרמטרים של
+  `approveTransaction`, שלא היו מפורטים במלואם בתיעוד הפומבי.
+
+## 5. הגדרת משתני הסביבה ב-Vercel
 ב-Vercel → Project → Settings → **Environment Variables** → הוסיפו את **כל** המשתנים
 מ-`.env.local` (גם הפומביים וגם הסודיים). הגדירו `NEXT_PUBLIC_SITE_ORIGIN` ל-`https://mekapele.com`.
 
-## 5. פרסום חוקי האבטחה
+## 6. פרסום חוקי האבטחה
 הקובץ `firestore.rules` חייב להיות פעיל ב-Firebase, אחרת המסד פתוח.
 - דרך ה-CLI: `firebase deploy --only firestore:rules`
 - או: Console → Firestore → Rules → הדביקו את התוכן → Publish.
 
-החוקים מבטיחים: כל משתמש קורא/כותב רק את המסמכים שלו, ושדות `credits` ו-`subscriptionTier`
-**לא ניתנים לכתיבה מהלקוח** — רק השרת (Admin SDK) או ה-webhook יכולים לשנות אותם.
+החוקים מבטיחים: כל משתמש קורא/כותב רק את המסמכים שלו, שדה `hearts` **לא ניתן
+לכתיבה מהלקוח** (רק Admin SDK), ואוסף `transactions` ניתן לקריאה בלבד לבעל הרשומה
+ואף פעם לא לכתיבה מהלקוח.
 
-## 6. ארכיטקטורת האבטחה (מה כבר מיושם)
-- **עיבוד בשרת**: המדידות המדויקות נוצרות רק ב-`/api/generate` עם `sharp`, אחרי אימות
-  טוקן + צריכת קרדיט. הדפדפן מקבל רק תצוגה מקדימה ברזולוציה נמוכה. כך הגידור באמת אכיף.
-- **אימות העלאות** (`lib/security/validateUpload.ts`): בודק MIME, גודל (מקס׳ 5MB), וחתימת
-  bytes אמיתית — קובץ הרצה מחופש לתמונה נחסם.
-- **Rate limiting** (`lib/security/rateLimit.ts` + `middleware.ts`): הגבלת קצב לכל משתמש/IP.
-  להרחבה לפרודקשן רב-שרתי, יש להחליף את ה-store בזיכרון ב-Redis/Vercel KV.
-- **CORS** (`lib/security/cors.ts`): מאפשר בקשות רק מהדומיין שב-`NEXT_PUBLIC_SITE_ORIGIN`.
-- **Webhook לתשלום** (`app/api/webhooks/payment/route.ts`): כולל אימות חתימה קריפטוגרפית
-  (סגנון Stripe) עם הגנת replay. צריך להגדיר `PAYMENT_WEBHOOK_SECRET` כשמחברים תשלום.
-
-## 7. מודל הקרדיטים
-- משתמש חדש מקבל 3 קרדיטים חינם (ב-`ensureUserProfile`).
-- כל יצירת תבנית מדויקת צורכת קרדיט אחד (אטומי, עם החזר אם העיבוד נכשל).
-- חיבור Stripe/PayPal עתידי: ה-webhook כבר מזרים קרדיטים דרך `grantCredits`. צריך רק למפות
-  מוצר→כמות קרדיטים, ולגדר את "ייצוא PDF" / "מעקב אינטראקטיבי" באותו אופן אם תרצו.
+## 7. מודל הלבבות
+- משתמש חדש מתחיל עם **0 לבבות** (`users/{userId}.hearts`, ב-`ensureUserProfile`).
+- כל בקשת יצירה מחשבת את מספר הקיפולים בפועל בשרת (`app/api/generate`):
+  עד 500 קיפולים = תבנית פשוטה = לב 1; מעל 500 = תבנית מורכבת = 2 לבבות.
+  החיוב אטומי (טרנזקציית Firestore) ומבוסס על המספר האמיתי שהשרת חישב — לא על
+  מה שהלקוח טוען.
+- חבילות רכישה (`lib/pricing.ts`): 1 לב = ₪19, 5 לבבות = ₪75 (הכי משתלם),
+  10 לבבות = ₪150.
+- זרימת תשלום: `POST /api/payment/create-checkout` יוצר תהליך תשלום ב-Grow ורשומת
+  `transactions/{id}` במצב `pending`. אחרי תשלום מוצלח, Grow קורא ל-
+  `POST /api/webhooks/grow`, שמעדכן את הרשומה ל-`completed` ומזרים לבבות
+  אטומית (`FieldValue.increment`) — הכל בטרנזקציה אחת, כך שקריאת webhook כפולה
+  לא תזכה פעמיים.
 
 ## הערה חשובה
-לא יכולתי לבדוק את נתיב ה-Firebase החי מהסביבה שלי כי הוא דורש את המפתחות שלכם.
-מה שנבדק ואומת: ה-build עובר, האלגוריתם, אימות ההעלאות, וה-rate limiting. החיבור החי
-ל-Google login ו-Firestore יתחיל לעבוד ברגע שתמלאו את משתני הסביבה.
+לא יכולתי לבדוק את נתיב ה-Firebase או ה-Grow החי מהסביבה שלי כי הם דורשים את
+המפתחות שלכם. מה שנבדק: ה-build עובר, האלגוריתם, אימות ההעלאות, וה-rate limiting.

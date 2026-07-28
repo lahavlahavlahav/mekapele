@@ -17,6 +17,7 @@ import {
 } from "@/lib/firestore/patterns";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 import { LoginGate, UserBadge } from "./LoginGate";
+import HeartsBadge from "./hearts/HeartsBadge";
 
 export default function MyPatterns() {
   const { user, loading: authLoading } = useAuth();
@@ -79,6 +80,7 @@ export default function MyPatterns() {
         >
           תבנית חדשה
         </button>
+        <HeartsBadge />
         <UserBadge />
       </header>
 

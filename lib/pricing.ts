@@ -1,5 +1,5 @@
 // =============================================================================
-// PRICING — heart packages (Grow checkout) + generation cost rules
+// PRICING — heart packages (Stripe checkout) + generation cost rules
 // -----------------------------------------------------------------------------
 // Pure data/logic, safe to import from both client and server code.
 // =============================================================================

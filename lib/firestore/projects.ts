@@ -68,7 +68,7 @@ export async function consumeHearts(
   });
 }
 
-/** Grant hearts (called by the Grow payment webhook, or to refund a failed generation). */
+/** Grant hearts (called by the Stripe payment webhook, or to refund a failed generation). */
 export async function grantHearts(uid: string, amount: number): Promise<void> {
   await getAdminDb()
     .collection("users")

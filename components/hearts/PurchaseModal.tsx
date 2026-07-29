@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================================
-// PURCHASE MODAL  — hearts packages, redirects to the Grow checkout page
+// PURCHASE MODAL  — hearts packages, redirects to the Stripe checkout page
 // =============================================================================
 
 import { useState } from "react";

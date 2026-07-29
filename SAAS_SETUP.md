@@ -1,4 +1,4 @@
-# הגדרת SaaS — Firebase, לבבות ותשלומים (Grow)
+# הגדרת SaaS — Firebase, לבבות ותשלומים (Stripe)
 
 המסמך הזה מסביר מה צריך להגדיר כדי שהאתר יעבוד עם התחברות, מסד נתונים ותשלומים אמיתיים.
 **הקוד כולו כתוב ומוכן — חסר רק לחבר מפתחות משלכם.**
@@ -21,28 +21,29 @@ Project settings → **Service accounts** → "Generate new private key" → י�
 
 ⚠️ אסור בשום אופן לחשוף את המפתח הזה בצד הלקוח או לדחוף אותו ל-GitHub.
 
-## 4. Grow (Meshulam) — תשלומים
-1. פנו לתמיכה של Grow (https://grow.business) לקבלת חשבון + `pageCode` + `userId`.
-2. מלאו ב-`.env.local` (ובהמשך ב-Vercel): `GROW_PAGE_CODE`, `GROW_USER_ID`.
-3. השאירו `GROW_API_BASE` מכוון לסביבת ה-sandbox עד שתאמתו עסקה אמיתית שם, ורק
-   אז עברו לסביבת הפרודקשן (מוזכר כהערה ב-`.env.local.example`).
-4. בדף ה-Webhooks בפאנל הניהול של Grow, צרו וובהוק חדש:
-   - **לינק לעדכון השרת**: `https://mekapele.com/api/webhooks/grow`
-   - **סוג הוובהוק**: עדכון לאחר ביצוע עסקה
-   - **דיווחים**: כל העסקאות (לא כולל ריצות הוראת קבע)
-   - **צורת שליחת הנתונים**: JSON
-   - **סטטוס**: פעיל
-   - העתיקו את ה-**webhook key** שמוצג בטופס למשתנה `GROW_WEBHOOK_KEY`. בלעדיו,
-     ה-webhook נכשל במכוון (fail closed) — כדי שאף אחד לא יוכל לקרוא ל-URL
-     הפומבי הזה ולזכות לבבות לעצמו בלי לשלם.
+## 4. Stripe — תשלומים
+1. פתחו חשבון ב-https://dashboard.stripe.com (אם עוד אין לכם), עם עסק ישראלי —
+   Stripe תומכת בהעברות ל-IBAN ישראלי ובכרטיסי אשראי, ללא עלות חודשית קבועה
+   (רק עמלה לכל עסקה).
+2. **Developers → API keys**: העתיקו את ה-**Secret key**. בהתחלה משתמשים במפתח
+   שמתחיל ב-`sk_test_...` (מצב בדיקות, בלי כסף אמיתי) — רק אחרי שמוודאים רכישה
+   מלאה עוברת כמו שצריך, עוברים ל-`sk_live_...`. מלאו ב-`.env.local`
+   (ובהמשך ב-Vercel): `STRIPE_SECRET_KEY`.
+3. **Developers → Webhooks → Add endpoint**:
+   - **Endpoint URL**: `https://mekapele.com/api/webhooks/stripe`
+   - **Events to send**: `checkout.session.completed`
+   - אחרי היצירה, לוחצים על ה-endpoint ומגלים ("Reveal") את ה-**Signing secret**
+     (`whsec_...`) — זה הולך ל-`STRIPE_WEBHOOK_SECRET`. בלעדיו, ה-webhook נכשל
+     במכוון (fail closed), וגם בקשה עם חתימה שגויה נדחית — כך שאף אחד לא יכול
+     לקרוא ל-URL הפומבי הזה ולזכות לבבות לעצמו בלי לשלם.
+4. **לבדיקה מקומית** לפני שיש דומיין: Stripe CLI (`stripe listen --forward-to
+   localhost:3000/api/webhooks/stripe`) מדפיס signing secret זמני לבדיקות.
 
-⚠️ **חשוב**: אינטגרציית Grow (`lib/payment/grow.ts`, `app/api/webhooks/grow/route.ts`)
-נכתבה לפי התיעוד הרשמי של Grow, אך **לא נבדקה מול חשבון Grow אמיתי** (לא היו זמינים
-פרטי התחברות בזמן הפיתוח). לפני קבלת תשלומים אמיתיים:
-- הריצו עסקת בדיקה אחת בסביבת ה-sandbox ובדקו את התשובה בפועל מ-`createPaymentProcess`
-  ואת ה-payload שמתקבל ב-webhook — ודאו ששמות השדות תואמים למה שהקוד מצפה לו.
-- שימו לב במיוחד לפורמט הבקשה (form-urlencoded לעומת JSON) ולפרמטרים של
-  `approveTransaction`, שלא היו מפורטים במלואם בתיעוד הפומבי.
+Stripe הוא ה-SDK הרשמי והמתועד היטב — האינטגרציה כאן (`lib/payment/stripe.ts`,
+`app/api/webhooks/stripe/route.ts`) משתמשת בו ישירות (לא בקריאות HTTP ידניות),
+כולל אימות חתימה מובנה (`stripe.webhooks.constructEvent`). עדיין לא בוצעה כאן
+עסקת בדיקה אמיתית (אין מפתחות בסביבה הזו) — מומלץ לבצע רכישה אחת ב-מצב
+test לפני מעבר ל-production.
 
 ## 5. הגדרת משתני הסביבה ב-Vercel
 ב-Vercel → Project → Settings → **Environment Variables** → הוסיפו את **כל** המשתנים
@@ -66,14 +67,15 @@ Project settings → **Service accounts** → "Generate new private key" → י�
 - חבילות רכישה (`lib/pricing.ts`): 1 לב = ₪19, 5 לבבות = ₪75 (הכי משתלם),
   10 לבבות = ₪150.
 - זרימת תשלום, מופרדת לשני קבצים באחריות ברורה:
-  - `POST /api/payment/create-checkout` — אחראי **רק** על הבקשה ל-Grow והחזרת
-    ה-URL ללקוח. לא נוגע ב-Firestore בכלל.
-  - `POST /api/webhooks/grow` — אחראי על קבלת ה-webhook, בדיקת ה-idempotency,
-    ויצירת/עדכון ה-Firestore. כשתשלום מאושר, הוא יוצר את `transactions/{growProcessId}`
-    (עם ה-id של תהליך התשלום מ-Grow עצמו כמזהה המסמך) ומזרים לבבות אטומית
-    (`FieldValue.increment`) — הכל באותה טרנזקציית Firestore, כך שאם Grow שולח
-    את אותו webhook פעמיים (דבר נפוץ), הכתיבה השנייה היא no-op ולא תזכה פעמיים.
+  - `POST /api/payment/create-checkout` — אחראי **רק** על הבקשה ל-Stripe (יצירת
+    Checkout Session) והחזרת ה-URL ללקוח. לא נוגע ב-Firestore בכלל.
+  - `POST /api/webhooks/stripe` — אחראי על אימות החתימה, קבלת ה-webhook, בדיקת
+    ה-idempotency, ויצירת/עדכון ה-Firestore. כשתשלום מאושר (`checkout.session.completed`),
+    הוא יוצר את `transactions/{stripeSessionId}` (עם ה-id של ה-Checkout Session
+    עצמו כמזהה המסמך) ומזרים לבבות אטומית (`FieldValue.increment`) — הכל באותה
+    טרנזקציית Firestore, כך שאם Stripe שולח את אותו webhook פעמיים (ה-retry
+    המובנה שלה בכל תשובה שאינה 2xx), הכתיבה השנייה היא no-op ולא תזכה פעמיים.
 
 ## הערה חשובה
-לא יכולתי לבדוק את נתיב ה-Firebase או ה-Grow החי מהסביבה שלי כי הם דורשים את
+לא יכולתי לבדוק את נתיב ה-Firebase או ה-Stripe החי מהסביבה שלי כי הם דורשים את
 המפתחות שלכם. מה שנבדק: ה-build עובר, האלגוריתם, אימות ההעלאות, וה-rate limiting.

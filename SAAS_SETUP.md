@@ -1,4 +1,4 @@
-# הגדרת SaaS — Firebase, לבבות ותשלומים (Stripe)
+# הגדרת SaaS — Firebase, לבבות ותשלומים (Grow דרך Make.com)
 
 המסמך הזה מסביר מה צריך להגדיר כדי שהאתר יעבוד עם התחברות, מסד נתונים ותשלומים אמיתיים.
 **הקוד כולו כתוב ומוכן — חסר רק לחבר מפתחות משלכם.**
@@ -21,29 +21,47 @@ Project settings → **Service accounts** → "Generate new private key" → י�
 
 ⚠️ אסור בשום אופן לחשוף את המפתח הזה בצד הלקוח או לדחוף אותו ל-GitHub.
 
-## 4. Stripe — תשלומים
-1. פתחו חשבון ב-https://dashboard.stripe.com (אם עוד אין לכם), עם עסק ישראלי —
-   Stripe תומכת בהעברות ל-IBAN ישראלי ובכרטיסי אשראי, ללא עלות חודשית קבועה
-   (רק עמלה לכל עסקה).
-2. **Developers → API keys**: העתיקו את ה-**Secret key**. בהתחלה משתמשים במפתח
-   שמתחיל ב-`sk_test_...` (מצב בדיקות, בלי כסף אמיתי) — רק אחרי שמוודאים רכישה
-   מלאה עוברת כמו שצריך, עוברים ל-`sk_live_...`. מלאו ב-`.env.local`
-   (ובהמשך ב-Vercel): `STRIPE_SECRET_KEY`.
-3. **Developers → Webhooks → Add endpoint**:
-   - **Endpoint URL**: `https://mekapele.com/api/webhooks/stripe`
-   - **Events to send**: `checkout.session.completed`
-   - אחרי היצירה, לוחצים על ה-endpoint ומגלים ("Reveal") את ה-**Signing secret**
-     (`whsec_...`) — זה הולך ל-`STRIPE_WEBHOOK_SECRET`. בלעדיו, ה-webhook נכשל
-     במכוון (fail closed), וגם בקשה עם חתימה שגויה נדחית — כך שאף אחד לא יכול
-     לקרוא ל-URL הפומבי הזה ולזכות לבבות לעצמו בלי לשלם.
-4. **לבדיקה מקומית** לפני שיש דומיין: Stripe CLI (`stripe listen --forward-to
-   localhost:3000/api/webhooks/stripe`) מדפיס signing secret זמני לבדיקות.
+## 4. Grow דרך Make.com — תשלומים
+כדי להימנע מהעלות החודשית של ה-API הישיר של Grow (500 ש"ח+מע"מ), יצירת דף
+התשלום החד-פעמי עוברת דרך Make.com (בהתאם למה שתמיכת Grow המליצה) — בחינם.
+קבלת ההתראה על תשלום שהושלם ממשיכה ישירות מ-Grow (זה לא היה חלק מהעלות
+החודשית, רק יצירת הדף הדינמית).
 
-Stripe הוא ה-SDK הרשמי והמתועד היטב — האינטגרציה כאן (`lib/payment/stripe.ts`,
-`app/api/webhooks/stripe/route.ts`) משתמשת בו ישירות (לא בקריאות HTTP ידניות),
-כולל אימות חתימה מובנה (`stripe.webhooks.constructEvent`). עדיין לא בוצעה כאן
-עסקת בדיקה אמיתית (אין מפתחות בסביבה הזו) — מומלץ לבצע רכישה אחת ב-מצב
-test לפני מעבר ל-production.
+### 4א. יצירת התרחיש (scenario) ב-Make.com
+1. פותחים חשבון ב-make.com (יש תוכנית חינמית).
+2. יוצרים תרחיש חדש עם:
+   - **Trigger**: מודול "Webhooks" → "Custom webhook" → יוצרים webhook חדש,
+     ומעתיקים את ה-URL שהוא מייצר.
+   - **Action**: מחברים את אפליקציית **Grow** של Make ובוחרים את הפעולה
+     ליצירת דף תשלום חד-פעמי מותאם אישית. ממפים את הסכום (`sum`) והתיאור
+     (`description`) שהתקבלו מה-webhook. **חשוב**: לבדוק אם המודול הזה חושף
+     שדות מותאמים אישית (custom fields / cField1-3) — אם כן, למפות
+     `userId`→cField1, `heartsAdded`→cField2, `packageId`→cField3 (בדיוק
+     כמו שהגיעו מה-webhook). בלי זה, ה-webhook הסופי מ-Grow לא ידע למי/כמה
+     לבבות לזכות.
+   - **Module אחרון**: "Webhooks" → "Webhook response" → מחזירים JSON:
+     `{ "paymentUrl": <ה-URL של דף התשלום שנוצר> }`.
+3. מפעילים את התרחיש (Scheduling → On), ומעתיקים את ה-webhook URL מהשלב 1
+   ל-`.env.local` (ובהמשך Vercel): `MAKE_CHECKOUT_WEBHOOK_URL`.
+
+אם המודול של Grow ב-Make **לא** תומך בשדות מותאמים אישית — יש לעדכן אותי,
+כי אז `app/api/webhooks/grow/route.ts` צריך דרך אחרת לזהות מי שילם.
+
+### 4ב. חיבור ה-Webhook הישיר מ-Grow (כמו קודם)
+זה לא השתנה מהניסיון הקודם — בדף ה-Webhooks בפאנל הניהול של Grow (לא ב-Make):
+- **לינק לעדכון השרת**: `https://mekapele.com/api/webhooks/grow`
+- **סוג הוובהוק**: עדכון לאחר ביצוע עסקה
+- **דיווחים**: כל העסקאות (לא כולל ריצות הוראת קבע)
+- **צורת שליחת הנתונים**: JSON
+- **סטטוס**: פעיל
+- מעתיקים את ה-**webhook key** שמוצג בטופס ל-`GROW_WEBHOOK_KEY`. בלעדיו,
+  ה-webhook נכשל במכוון (fail closed).
+
+⚠️ **חשוב**: כל האינטגרציה הזו (`lib/payment/make.ts`,
+`app/api/webhooks/grow/route.ts`) תלויה בתרחיש Make.com שאתם בונים בעצמכם —
+אני לא יכול לבנות אותו (זו ממשק ויזואלי, לא קוד), רק להגדיר בדיוק מה הקוד
+שלנו מצפה לקבל ולשלוח. לפני תשלום אמיתי, הריצו רכישת בדיקה אחת מקצה לקצה
+ווודאו שה-webhook הסופי מ-Grow מגיע עם `customFields` תקינים.
 
 ## 5. הגדרת משתני הסביבה ב-Vercel
 ב-Vercel → Project → Settings → **Environment Variables** → הוסיפו את **כל** המשתנים
@@ -67,15 +85,17 @@ test לפני מעבר ל-production.
 - חבילות רכישה (`lib/pricing.ts`): 1 לב = ₪19, 5 לבבות = ₪75 (הכי משתלם),
   10 לבבות = ₪150.
 - זרימת תשלום, מופרדת לשני קבצים באחריות ברורה:
-  - `POST /api/payment/create-checkout` — אחראי **רק** על הבקשה ל-Stripe (יצירת
-    Checkout Session) והחזרת ה-URL ללקוח. לא נוגע ב-Firestore בכלל.
-  - `POST /api/webhooks/stripe` — אחראי על אימות החתימה, קבלת ה-webhook, בדיקת
-    ה-idempotency, ויצירת/עדכון ה-Firestore. כשתשלום מאושר (`checkout.session.completed`),
-    הוא יוצר את `transactions/{stripeSessionId}` (עם ה-id של ה-Checkout Session
-    עצמו כמזהה המסמך) ומזרים לבבות אטומית (`FieldValue.increment`) — הכל באותה
-    טרנזקציית Firestore, כך שאם Stripe שולח את אותו webhook פעמיים (ה-retry
-    המובנה שלה בכל תשובה שאינה 2xx), הכתיבה השנייה היא no-op ולא תזכה פעמיים.
+  - `POST /api/payment/create-checkout` — אחראי **רק** על הבקשה לתרחיש
+    Make.com (`lib/payment/make.ts`) והחזרת ה-URL ללקוח. לא נוגע ב-Firestore
+    בכלל.
+  - `POST /api/webhooks/grow` — אחראי על אימות ה-`webhookKey`, קבלת ה-webhook
+    **ישירות מ-Grow**, בדיקת ה-idempotency, ויצירת/עדכון ה-Firestore. כשתשלום
+    מאושר, הוא יוצר את `transactions/{growProcessId}` (עם ה-id של תהליך
+    התשלום מ-Grow עצמו כמזהה המסמך) ומזרים לבבות אטומית
+    (`FieldValue.increment`) — הכל באותה טרנזקציית Firestore, כך שאם Grow
+    שולח את אותו webhook פעמיים, הכתיבה השנייה היא no-op ולא תזכה פעמיים.
 
 ## הערה חשובה
-לא יכולתי לבדוק את נתיב ה-Firebase או ה-Stripe החי מהסביבה שלי כי הם דורשים את
-המפתחות שלכם. מה שנבדק: ה-build עובר, האלגוריתם, אימות ההעלאות, וה-rate limiting.
+לא יכולתי לבדוק את נתיב ה-Firebase, ה-Make.com או ה-Grow החי מהסביבה שלי כי
+הם דורשים את המפתחות/התרחיש שלכם. מה שנבדק: ה-build עובר, האלגוריתם, אימות
+ההעלאות, וה-rate limiting.

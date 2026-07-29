@@ -1,16 +1,15 @@
 // =============================================================================
 // FIRESTORE — payment transaction records  (Admin SDK, server-only)
 // -----------------------------------------------------------------------------
-// transactions/{stripeSessionId}:
+// transactions/{growProcessId}:
 //   userId, packageId, heartsAdded, amount, status ('completed'),
-//   stripeSessionId, createdAt
+//   growProcessId, createdAt
 //
-// create-checkout never touches Firestore — it only talks to Stripe and hands
-// the browser a Checkout Session URL. This module is used exclusively by the
-// webhook, which is the sole place a transaction record is created, using
-// Stripe's own Checkout Session id AS the document id: writing a doc that
-// already exists is a no-op, so a duplicate webhook delivery (Stripe retries
-// on anything but a 2xx response) can never double-credit hearts.
+// create-checkout never touches Firestore — it only talks to Grow and hands
+// the browser a payment URL. This module is used exclusively by the webhook,
+// which is the sole place a transaction record is created, using Grow's own
+// process id AS the document id: writing a doc that already exists is a
+// no-op, so a duplicate webhook delivery can never double-credit hearts.
 // =============================================================================
 
 import "server-only";
@@ -23,7 +22,7 @@ export interface TransactionRecord {
   heartsAdded: number;
   amount: number;
   status: "completed";
-  stripeSessionId: string;
+  growProcessId: string;
   createdAt: number;
 }
 
@@ -34,16 +33,16 @@ export interface RecordPaymentResult {
 }
 
 /**
- * Idempotently record a confirmed Stripe payment and credit the user's
- * hearts, atomically, keyed by the Checkout Session id. Safe to call multiple
- * times with the same stripeSessionId — only the first call grants hearts.
+ * Idempotently record a confirmed Grow payment and credit the user's hearts,
+ * atomically, keyed by growProcessId. Safe to call multiple times with the
+ * same growProcessId — only the first call grants hearts.
  */
 export async function recordCompletedPayment(
-  stripeSessionId: string,
-  params: Omit<TransactionRecord, "status" | "createdAt" | "stripeSessionId">
+  growProcessId: string,
+  params: Omit<TransactionRecord, "status" | "createdAt" | "growProcessId">
 ): Promise<RecordPaymentResult> {
   const db = getAdminDb();
-  const ref = db.collection("transactions").doc(stripeSessionId);
+  const ref = db.collection("transactions").doc(growProcessId);
 
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -54,7 +53,7 @@ export async function recordCompletedPayment(
     const record: TransactionRecord = {
       ...params,
       status: "completed",
-      stripeSessionId,
+      growProcessId,
       createdAt: Date.now(),
     };
 

@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
   try {
     const { paymentUrl } = await createPaymentLink({
       sum: pkg.priceIls,
-      description: `${pkg.hearts} לבבות — Mekapele`,
+      description: `${pkg.label} — Mekapele`,
       successUrl: `${siteOrigin}/?purchase=success`,
       cancelUrl: `${siteOrigin}/?purchase=cancelled`,
       email: user.email ?? undefined,

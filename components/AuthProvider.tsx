@@ -54,6 +54,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsub = watchAuth((u) => {
         setUser(u);
         setLoading(false);
+        if (u) {
+          // Fire-and-forget: claims any guest-checkout hearts bought under
+          // this email before this sign-in. Firestore's own onSnapshot
+          // listener (useHearts) picks up the credited balance automatically.
+          u.getIdToken()
+            .then((token) =>
+              fetch("/api/auth/sync", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+              })
+            )
+            .catch(() => {});
+        }
       });
     } catch {
       // Firebase not configured yet (no env vars) — run in guest-only mode.

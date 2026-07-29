@@ -10,6 +10,7 @@ import { HEART_PACKAGES } from "@/lib/pricing";
 
 /** Israeli mobile format, e.g. 0501234567 — Grow requires this to create a payment page. */
 const IL_MOBILE_RE = /^05\d{8}$/;
+const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
 /** Grow requires a first + last name, each at least 2 characters. */
 function isValidFullName(name: string): boolean {
@@ -21,11 +22,13 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
   const { user, getToken } = useAuth();
   const [fullName, setFullName] = useState(user?.displayName ?? "");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState(user?.email ?? "");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const phoneValid = IL_MOBILE_RE.test(phone);
   const fullNameValid = isValidFullName(fullName);
+  const emailValid = EMAIL_RE.test(email);
 
   const onBuy = async (packageId: string) => {
     setError(null);
@@ -37,16 +40,24 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
       setError("נא להזין מספר טלפון נייד ישראלי תקין (לדוגמה 0501234567).");
       return;
     }
+    if (!emailValid) {
+      setError("נא להזין כתובת אימייל תקינה.");
+      return;
+    }
     setBusyId(packageId);
     try {
-      const token = await getToken();
+      // Signing in is optional — if we have a token we send it (hearts go
+      // straight to that account), but a missing/expired token doesn't block
+      // the purchase: it just becomes a guest checkout identified by email,
+      // claimed automatically the next time this email signs in.
+      const token = await getToken().catch(() => null);
       const res = await fetch("/api/payment/create-checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ packageId, fullName: fullName.trim(), phone }),
+        body: JSON.stringify({ packageId, fullName: fullName.trim(), phone, email: email.trim() }),
       });
       const json = await res.json();
       if (!res.ok || !json.paymentUrl) {
@@ -93,7 +104,7 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
           />
         </label>
 
-        <label className="block mb-4 text-sm">
+        <label className="block mb-3 text-sm">
           <span className="font-semibold block mb-1.5">מספר טלפון נייד</span>
           <input
             type="tel"
@@ -104,8 +115,22 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
             className="w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular"
             style={{ borderColor: "var(--line)" }}
           />
+        </label>
+
+        <label className="block mb-4 text-sm">
+          <span className="font-semibold block mb-1.5">אימייל</span>
+          <input
+            type="email"
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)]"
+            style={{ borderColor: "var(--line)" }}
+            dir="ltr"
+          />
           <span className="block mt-1 text-xs text-[var(--ink-soft)]">
-            שם וטלפון נדרשים ליצירת דף התשלום.
+            שם, טלפון ואימייל נדרשים ליצירת דף התשלום. לא מחוברות? הלבבות ייזקפו
+            אוטומטית לחשבון ברגע שתתחברו עם אותו אימייל.
           </span>
         </label>
 

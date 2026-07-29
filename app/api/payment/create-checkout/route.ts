@@ -5,9 +5,15 @@
 // payment page and hand the browser its URL to redirect to. Nothing here
 // touches Firestore — the webhook (app/api/webhooks/grow), called directly
 // by Grow (not through Make), owns every write once payment is confirmed.
-// The buyer's identity comes from their verified Firebase ID token (never
-// trusted from the request body) so a caller can never trigger a purchase
-// credited to someone else's account.
+//
+// Signing in is NOT required to check out — purchase should never be
+// blocked on auth working. If the request carries a valid Firebase ID
+// token, hearts go straight to that uid (still never trusted from the
+// request body — always the verified token). Otherwise this is a guest
+// checkout: the buyer's email (typed into the purchase form, required in
+// that case) identifies them, and lib/firestore/projects.ts's
+// claimPendingCredits hands the hearts over automatically the first time
+// someone signs in with that same email.
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -37,34 +43,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const user = await verifyAuth(req);
-  if (!user) {
-    return NextResponse.json(
-      { error: "Sign in required." },
-      { status: 401, headers: cors }
-    );
-  }
-
-  const limit = hit(`checkout:${user.uid}`, 10, 60_000);
-  if (!limit.allowed) {
-    return NextResponse.json(
-      { error: "Too many requests. Please slow down." },
-      { status: 429, headers: cors }
-    );
-  }
+  // Optional: if a valid token is present, use its verified uid/email. If
+  // not (or verification fails), this is a guest checkout — not rejected.
+  const authedUser = await verifyAuth(req);
 
   let packageId: string;
   let fullName: string;
   let phone: string;
+  let email: string;
   try {
     const body = await req.json();
     packageId = String(body.packageId ?? "");
     fullName = String(body.fullName ?? "").trim();
     phone = String(body.phone ?? "").trim();
+    email = String(body.email ?? "").trim().toLowerCase();
   } catch {
     return NextResponse.json(
       { error: "Malformed request." },
       { status: 400, headers: cors }
+    );
+  }
+
+  const buyerEmail = authedUser?.email ?? email;
+  const rateLimitKey = authedUser?.uid ?? buyerEmail ?? "anon";
+  const limit = hit(`checkout:${rateLimitKey}`, 10, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down." },
+      { status: 429, headers: cors }
     );
   }
 
@@ -78,9 +84,16 @@ export async function POST(req: NextRequest) {
 
   // Grow requires a real full name + Israeli mobile number to create a
   // payment page — validate server-side too, don't trust the client alone.
-  if (fullName.split(/\s+/).filter(Boolean).length < 2 || !/^05\d{8}$/.test(phone)) {
+  // A guest (no verified token) also needs a real-looking email so the
+  // purchase can be claimed once they sign in.
+  const emailValid = /^\S+@\S+\.\S+$/.test(buyerEmail);
+  if (
+    fullName.split(/\s+/).filter(Boolean).length < 2 ||
+    !/^05\d{8}$/.test(phone) ||
+    !emailValid
+  ) {
     return NextResponse.json(
-      { error: "נא להזין שם מלא ומספר טלפון נייד תקינים." },
+      { error: "נא להזין שם מלא, טלפון נייד ואימייל תקינים." },
       { status: 400, headers: cors }
     );
   }
@@ -93,10 +106,10 @@ export async function POST(req: NextRequest) {
       description: `${pkg.label} — Mekapele`,
       successUrl: `${siteOrigin}/?purchase=success`,
       cancelUrl: `${siteOrigin}/?purchase=cancelled`,
-      email: user.email ?? undefined,
+      email: buyerEmail,
       fullName,
       phone,
-      userId: user.uid,
+      userId: authedUser?.uid ?? "",
       packageId: pkg.id,
       heartsAdded: String(pkg.hearts),
     });

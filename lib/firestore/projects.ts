@@ -32,17 +32,54 @@ export async function ensureUserProfile(
   const ref = getAdminDb().collection("users").doc(uid);
   const snap = await ref.get();
 
-  if (snap.exists) {
-    return snap.data() as UserProfile;
+  const profile: UserProfile = snap.exists
+    ? (snap.data() as UserProfile)
+    : {
+        email,
+        hearts: email === OWNER_TEST_EMAIL ? OWNER_TEST_HEARTS : 0,
+        createdAt: Date.now(),
+      };
+  if (!snap.exists) await ref.set(profile);
+
+  if (email && email !== OWNER_TEST_EMAIL) {
+    await claimPendingCredits(uid, email);
   }
 
-  const profile: UserProfile = {
-    email,
-    hearts: email === OWNER_TEST_EMAIL ? OWNER_TEST_HEARTS : 0,
-    createdAt: Date.now(),
-  };
-  await ref.set(profile);
   return profile;
+}
+
+/**
+ * Credit hearts from any guest purchases (checkout without being signed in,
+ * identified by email — see app/api/payment/create-checkout) matching this
+ * email. Called on every sign-in via ensureUserProfile, so a guest purchase
+ * made before ever creating an account gets picked up the first time they do.
+ */
+export async function claimPendingCredits(
+  uid: string,
+  email: string
+): Promise<void> {
+  const db = getAdminDb();
+  const normalized = email.toLowerCase();
+  const query = db
+    .collection("pendingCredits")
+    .where("email", "==", normalized)
+    .where("claimed", "==", false);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(query);
+    if (snap.empty) return;
+
+    let total = 0;
+    for (const doc of snap.docs) {
+      total += doc.data().heartsAdded as number;
+      tx.update(doc.ref, { claimed: true, claimedByUid: uid, claimedAt: Date.now() });
+    }
+    if (total > 0) {
+      tx.update(db.collection("users").doc(uid), {
+        hearts: FieldValue.increment(total),
+      });
+    }
+  });
 }
 
 /** Read a user profile (server context). */

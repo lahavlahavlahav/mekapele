@@ -10,6 +10,12 @@
 // the Make scenario set those custom fields when creating the page (check
 // this when you build it; without them this webhook can't tell who paid).
 //
+// Checkout doesn't require being signed in — cField1 (userId) is empty for a
+// guest purchase, so we fall back to the buyer's email (a standard field
+// Grow returns, not a custom one) and park the hearts in pendingCredits,
+// claimed automatically the next time someone signs in with that email
+// (see claimPendingCredits in lib/firestore/projects.ts).
+//
 // This is called DIRECTLY by Grow (account-level Webhooks feature, not
 // routed through Make) — that path doesn't require the paid API, only
 // dynamically creating payment links did.
@@ -25,9 +31,10 @@
 // credit hearts twice.
 //
 // ⚠️ Not live-tested against a real Grow account. Confirm the payload shape
-// (JSON vs form-encoded, exact field names/nesting, and whether customFields
+// (JSON vs form-encoded, exact field names/nesting, whether customFields
 // actually come through when the page was created via Make rather than the
-// direct API) against a real sandbox delivery before going live.
+// direct API, and the exact key Grow uses for the buyer's email) against a
+// real sandbox delivery before going live.
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -89,14 +96,24 @@ export async function POST(req: NextRequest) {
   const heartsAdded = Number(customFields.cField2 ?? 0);
   const packageId = String(customFields.cField3 ?? "");
   const amount = Number(data.sum ?? 0);
+  // Guest checkout has no userId — fall back to the buyer's email (passed
+  // through by Make/Grow as a standard field, not a custom one) so hearts
+  // can still be parked in pendingCredits and claimed on next sign-in.
+  const email = String(data.email ?? data.customerEmail ?? "").trim().toLowerCase();
 
-  if (!growProcessId || !userId || !Number.isFinite(heartsAdded) || heartsAdded <= 0) {
-    console.error("Grow webhook: malformed payload", { growProcessId, userId, heartsAdded });
+  if (
+    !growProcessId ||
+    (!userId && !email) ||
+    !Number.isFinite(heartsAdded) ||
+    heartsAdded <= 0
+  ) {
+    console.error("Grow webhook: malformed payload", { growProcessId, userId, email, heartsAdded });
     return NextResponse.json({ error: "Malformed payload." }, { status: 400 });
   }
 
   const { record, granted } = await recordCompletedPayment(growProcessId, {
     userId,
+    email,
     packageId,
     heartsAdded,
     amount,
@@ -104,7 +121,7 @@ export async function POST(req: NextRequest) {
 
   if (granted) {
     console.log(
-      `Grow webhook: credited ${record.heartsAdded} hearts to ${record.userId} (process ${growProcessId})`
+      `Grow webhook: credited ${record.heartsAdded} hearts to ${record.userId || `pending:${record.email}`} (process ${growProcessId})`
     );
   }
 

@@ -11,11 +11,35 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from "next/server";
-import { allowedOrigins } from "@/lib/security/cors";
 
 export const config = {
   matcher: ["/api/:path*"],
 };
+
+const DEV_ORIGINS = ["http://localhost:3000"];
+
+/**
+ * NEXT_PUBLIC_SITE_ORIGIN only needs to name ONE variant — both the www and
+ * bare-apex form of it are always allowed, since whichever one isn't
+ * canonical typically 308-redirects to the other, but the browser's Origin
+ * header reflects whatever the user is actually on. Kept as an inline copy
+ * (not imported from lib/security/cors.ts) deliberately — importing from
+ * another module here previously broke every /api/* request in Vercel's
+ * Edge Middleware runtime despite building and typechecking fine locally.
+ */
+function withWwwVariant(origin: string): string[] {
+  if (origin.includes("://www.")) {
+    return [origin, origin.replace("://www.", "://")];
+  }
+  return [origin, origin.replace("://", "://www.")];
+}
+
+function allowedOrigins(): string[] {
+  const prod = process.env.NEXT_PUBLIC_SITE_ORIGIN;
+  const list = prod ? withWwwVariant(prod) : [];
+  if (process.env.NODE_ENV !== "production") list.push(...DEV_ORIGINS);
+  return list;
+}
 
 // Lightweight per-IP limiter shared across this edge instance.
 const ipBuckets = new Map<string, { count: number; resetAt: number }>();

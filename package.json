@@ -29,5 +29,8 @@
     "@types/three": "^0.185.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "jose": "5.10.0"
   }
 }

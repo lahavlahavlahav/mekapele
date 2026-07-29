@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { COMPLEX_FOLD_THRESHOLD, HEART_PACKAGES } from "@/lib/pricing";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "שאלות נפוצות — Mekapele",
@@ -72,6 +73,8 @@ export default function FaqPage() {
           </ul>
         </section>
       </div>
+
+      <Footer />
     </div>
   );
 }

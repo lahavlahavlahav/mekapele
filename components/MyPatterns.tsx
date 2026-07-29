@@ -18,6 +18,7 @@ import {
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 import { LoginGate, UserBadge } from "./LoginGate";
 import HeartsBadge from "./hearts/HeartsBadge";
+import Footer from "./Footer";
 
 export default function MyPatterns() {
   const { user, loading: authLoading } = useAuth();
@@ -186,6 +187,8 @@ export default function MyPatterns() {
           })}
         </div>
       )}
+
+      <Footer />
     </div>
   );
 }

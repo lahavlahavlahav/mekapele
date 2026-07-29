@@ -6,8 +6,8 @@ import { useStore } from "@/lib/store";
 import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
 import { generateFoldingPattern } from "@/lib/algorithm";
 import type { FoldingMode, FoldingPattern, ReadingDirection } from "@/lib/types";
-import Link from "next/link";
 import Field from "./ui/Field";
+import Footer from "./Footer";
 import { useAuth } from "./AuthProvider";
 import { LoginGate, UserBadge } from "./LoginGate";
 import { savePattern } from "@/lib/firestore/patterns";
@@ -521,11 +521,7 @@ export default function ConfigPanel() {
         </div>
       )}
 
-      <p className="mt-6 text-center text-sm">
-        <Link href="/faq" className="font-semibold" style={{ color: "var(--coral-deep)" }}>
-          שאלות נפוצות
-        </Link>
-      </p>
+      <Footer />
 
       {preview3D && (
         <Preview3DModal

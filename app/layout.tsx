@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
+import AccessibilityWidget from "@/components/AccessibilityWidget";
 
 export const metadata: Metadata = {
   title: "Lilou Books — סטודיו לקיפול ספרים",
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="he" dir="rtl">
       <body>
         <AuthProvider>{children}</AuthProvider>
+        <AccessibilityWidget />
       </body>
     </html>
   );

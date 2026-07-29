@@ -16,7 +16,15 @@ export interface UserProfile {
   createdAt: number;
 }
 
-/** Ensure a user doc exists; new users start with 0 hearts. */
+/**
+ * The site owner's own account for demoing/testing the full flow without
+ * spending real money: always has 10 hearts, auto-refilled on every
+ * generation (see consumeHearts).
+ */
+const OWNER_TEST_EMAIL = "lahavbarak430@gmail.com";
+const OWNER_TEST_HEARTS = 10;
+
+/** Ensure a user doc exists; new users start with 0 hearts (10 for the owner test account). */
 export async function ensureUserProfile(
   uid: string,
   email: string | null
@@ -30,7 +38,7 @@ export async function ensureUserProfile(
 
   const profile: UserProfile = {
     email,
-    hearts: 0,
+    hearts: email === OWNER_TEST_EMAIL ? OWNER_TEST_HEARTS : 0,
     createdAt: Date.now(),
   };
   await ref.set(profile);
@@ -59,6 +67,14 @@ export async function consumeHearts(
     const snap = await tx.get(ref);
     if (!snap.exists) return null;
     const profile = snap.data() as UserProfile;
+
+    // Owner test account: never runs out, always sits at 10.
+    if (profile.email === OWNER_TEST_EMAIL) {
+      if (profile.hearts !== OWNER_TEST_HEARTS) {
+        tx.update(ref, { hearts: OWNER_TEST_HEARTS });
+      }
+      return OWNER_TEST_HEARTS;
+    }
 
     if (profile.hearts < amount) return null;
 

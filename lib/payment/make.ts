@@ -9,8 +9,10 @@
 //
 // ⚠️ SETUP REQUIRED — build a Make.com scenario (see SAAS_SETUP.md) with:
 //   1. Trigger: "Custom webhook" — copy its URL into MAKE_CHECKOUT_WEBHOOK_URL.
-//   2. Action: Grow's module to create a one-time payment page for the
-//      `sum`/`description` this webhook receives. Set Grow's custom fields
+//   2. Action: Grow's "Create Payment Link" module. Grow requires Full Name +
+//      Phone (both real, collected in the purchase modal — not placeholders),
+//      map them from this webhook's `fullName`/`phone` fields, and map
+//      `email` too (optional on Grow's side). Set Grow's custom fields
 //      (cField1/cField2/cField3) to userId/heartsAdded/packageId if the Grow
 //      module in Make exposes them (it should — check when building this;
 //      tell Claude if it doesn't, the webhook needs another way to identify
@@ -34,6 +36,9 @@ export interface CreatePaymentLinkParams {
   packageId: string;
   successUrl: string;
   cancelUrl: string;
+  /** Real customer contact info — Grow requires both to create a payment page. */
+  fullName: string;
+  phone: string;
   email?: string;
 }
 

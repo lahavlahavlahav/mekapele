@@ -8,13 +8,35 @@ import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { HEART_PACKAGES } from "@/lib/pricing";
 
+/** Israeli mobile format, e.g. 0501234567 — Grow requires this to create a payment page. */
+const IL_MOBILE_RE = /^05\d{8}$/;
+
+/** Grow requires a first + last name, each at least 2 characters. */
+function isValidFullName(name: string): boolean {
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2 && parts.every((p) => p.length >= 2);
+}
+
 export default function PurchaseModal({ onClose }: { onClose: () => void }) {
-  const { getToken } = useAuth();
+  const { user, getToken } = useAuth();
+  const [fullName, setFullName] = useState(user?.displayName ?? "");
+  const [phone, setPhone] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const phoneValid = IL_MOBILE_RE.test(phone);
+  const fullNameValid = isValidFullName(fullName);
+
   const onBuy = async (packageId: string) => {
     setError(null);
+    if (!fullNameValid) {
+      setError("נא להזין שם פרטי ושם משפחה (לפחות 2 תווים כל אחד).");
+      return;
+    }
+    if (!phoneValid) {
+      setError("נא להזין מספר טלפון נייד ישראלי תקין (לדוגמה 0501234567).");
+      return;
+    }
     setBusyId(packageId);
     try {
       const token = await getToken();
@@ -24,7 +46,7 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ packageId }),
+        body: JSON.stringify({ packageId, fullName: fullName.trim(), phone }),
       });
       const json = await res.json();
       if (!res.ok || !json.paymentUrl) {
@@ -58,6 +80,34 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
             ×
           </button>
         </div>
+
+        <label className="block mb-3 text-sm">
+          <span className="font-semibold block mb-1.5">שם מלא</span>
+          <input
+            type="text"
+            placeholder="שם פרטי ושם משפחה"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)]"
+            style={{ borderColor: "var(--line)" }}
+          />
+        </label>
+
+        <label className="block mb-4 text-sm">
+          <span className="font-semibold block mb-1.5">מספר טלפון נייד</span>
+          <input
+            type="tel"
+            inputMode="tel"
+            placeholder="0501234567"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ""))}
+            className="w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular"
+            style={{ borderColor: "var(--line)" }}
+          />
+          <span className="block mt-1 text-xs text-[var(--ink-soft)]">
+            שם וטלפון נדרשים ליצירת דף התשלום.
+          </span>
+        </label>
 
         <div className="space-y-3 mb-2">
           {HEART_PACKAGES.map((pkg) => (

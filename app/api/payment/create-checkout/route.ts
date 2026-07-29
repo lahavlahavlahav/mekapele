@@ -54,9 +54,13 @@ export async function POST(req: NextRequest) {
   }
 
   let packageId: string;
+  let fullName: string;
+  let phone: string;
   try {
     const body = await req.json();
     packageId = String(body.packageId ?? "");
+    fullName = String(body.fullName ?? "").trim();
+    phone = String(body.phone ?? "").trim();
   } catch {
     return NextResponse.json(
       { error: "Malformed request." },
@@ -72,6 +76,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Grow requires a real full name + Israeli mobile number to create a
+  // payment page — validate server-side too, don't trust the client alone.
+  if (fullName.split(/\s+/).filter(Boolean).length < 2 || !/^05\d{8}$/.test(phone)) {
+    return NextResponse.json(
+      { error: "נא להזין שם מלא ומספר טלפון נייד תקינים." },
+      { status: 400, headers: cors }
+    );
+  }
+
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN || origin || "";
 
   try {
@@ -81,6 +94,8 @@ export async function POST(req: NextRequest) {
       successUrl: `${siteOrigin}/?purchase=success`,
       cancelUrl: `${siteOrigin}/?purchase=cancelled`,
       email: user.email ?? undefined,
+      fullName,
+      phone,
       userId: user.uid,
       packageId: pkg.id,
       heartsAdded: String(pkg.hearts),

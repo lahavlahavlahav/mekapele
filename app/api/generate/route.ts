@@ -6,11 +6,13 @@
 //   2. Rate limit (per uid / IP)
 //   3. Auth: verify Firebase ID token  → 401 if missing/invalid
 //   4. Upload validation: MIME + size + magic bytes  → 400 if bad
-//   5. Consume 1 credit (atomic)  → 402 if insufficient
-//   6. Run the real algorithm with sharp  → return full measurements
+//   5. Run the real algorithm with sharp to get the AUTHORITATIVE fold count
+//   6. Consume the required hearts for that complexity (atomic) → 402 if short
 //
-// The browser only ever gets a LOW-RES preview from its own Canvas code; the
-// exact measurements exist only behind this authenticated, metered route.
+// The client shows its own locally-computed fold count/cost estimate in the
+// confirmation modal for a snappy UI, but this route recomputes it
+// server-side and charges off THAT number — the client's number is never
+// trusted for billing.
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,7 +25,8 @@ import {
 } from "@/lib/security/validateUpload";
 import { extractPixelGridServer } from "@/lib/security/imageProcessorServer";
 import { generateFoldingPattern } from "@/lib/algorithm";
-import { consumeCredits, ensureUserProfile } from "@/lib/firestore/projects";
+import { consumeHearts, ensureUserProfile } from "@/lib/firestore/projects";
+import { classifyComplexity, heartsRequired } from "@/lib/pricing";
 import type { BookConfig } from "@/lib/types";
 
 export const runtime = "nodejs"; // sharp needs the Node runtime
@@ -133,31 +136,40 @@ export async function POST(req: NextRequest) {
   // Make sure the user doc exists (first-time login), then meter the action.
   await ensureUserProfile(user.uid, user.email);
 
-  // 5. Consume one credit atomically; 402 if out of credits.
-  const remaining = await consumeCredits(user.uid, 1);
-  if (remaining === null) {
-    return NextResponse.json(
-      { error: "Out of credits.", code: "INSUFFICIENT_CREDITS" },
-      { status: 402, headers: cors }
-    );
-  }
-
-  // 6. The real work — server-only.
+  // 5. Run the real algorithm first — we need the authoritative fold count
+  // to know how many hearts this pattern actually costs.
+  let pattern;
   try {
     const grid = await extractPixelGridServer(bytes);
-    const pattern = generateFoldingPattern(grid, config);
-    return NextResponse.json(
-      { pattern, creditsRemaining: remaining },
-      { status: 200, headers: cors }
-    );
+    pattern = generateFoldingPattern(grid, config);
   } catch {
-    // Processing failed AFTER charging — refund the credit to be fair.
-    // (grantCredits is webhook-grade but safe to reuse here server-side.)
-    const { grantCredits } = await import("@/lib/firestore/projects");
-    await grantCredits(user.uid, 1).catch(() => {});
     return NextResponse.json(
       { error: "Could not process this image." },
       { status: 500, headers: cors }
     );
   }
+
+  const foldCount = pattern.pages.length;
+  const complexity = classifyComplexity(foldCount);
+  const cost = heartsRequired(foldCount);
+
+  // 6. Consume the required hearts atomically; 402 if insufficient.
+  const remaining = await consumeHearts(user.uid, cost);
+  if (remaining === null) {
+    return NextResponse.json(
+      {
+        error: "Not enough hearts.",
+        code: "INSUFFICIENT_HEARTS",
+        foldCount,
+        complexity,
+        requiredHearts: cost,
+      },
+      { status: 402, headers: cors }
+    );
+  }
+
+  return NextResponse.json(
+    { pattern, foldCount, complexity, heartsCharged: cost, heartsRemaining: remaining },
+    { status: 200, headers: cors }
+  );
 }

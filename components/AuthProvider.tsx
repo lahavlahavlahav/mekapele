@@ -18,6 +18,8 @@ import type { User } from "firebase/auth";
 import {
   watchAuth,
   signInWithGoogle,
+  signInWithEmail,
+  signUpWithEmail,
   signOut as fbSignOut,
   getIdToken,
 } from "@/lib/firebase/client";
@@ -26,6 +28,8 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInEmail: (email: string, password: string) => Promise<void>;
+  signUpEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   getToken: () => Promise<string | null>;
 }
@@ -34,6 +38,8 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   signIn: async () => {},
+  signInEmail: async () => {},
+  signUpEmail: async () => {},
   signOut: async () => {},
   getToken: async () => null,
 });
@@ -60,6 +66,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithGoogle();
   }, []);
 
+  const signInEmail = useCallback(async (email: string, password: string) => {
+    await signInWithEmail(email, password);
+  }, []);
+
+  const signUpEmail = useCallback(async (email: string, password: string) => {
+    await signUpWithEmail(email, password);
+  }, []);
+
   const signOut = useCallback(async () => {
     await fbSignOut();
   }, []);
@@ -67,7 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const getToken = useCallback(() => getIdToken(), []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, getToken }}>
+    <AuthContext.Provider
+      value={{ user, loading, signIn, signInEmail, signUpEmail, signOut, getToken }}
+    >
       {children}
     </AuthContext.Provider>
   );

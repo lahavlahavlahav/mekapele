@@ -1,9 +1,9 @@
 // =============================================================================
-// FIRESTORE — server-side user & credit operations  (Admin SDK)
+// FIRESTORE — server-side user & hearts operations  (Admin SDK)
 // -----------------------------------------------------------------------------
-// All credit/tier mutations live here and run with the Admin SDK, which is the
-// ONLY actor permitted by firestore.rules to touch those protected fields.
-// The client can READ its own user doc but can NEVER write credits/tier.
+// All hearts mutations live here and run with the Admin SDK, which is the
+// ONLY actor permitted by firestore.rules to touch that protected field.
+// The client can READ its own user doc but can NEVER write `hearts`.
 // =============================================================================
 
 import "server-only";
@@ -11,14 +11,12 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 
 export interface UserProfile {
-  userId: string;
   email: string | null;
-  credits: number;
-  subscriptionTier: "free" | "pro" | "studio";
+  hearts: number;
   createdAt: number;
 }
 
-/** Ensure a user doc exists; create with starter credits on first login. */
+/** Ensure a user doc exists; new users start with 0 hearts. */
 export async function ensureUserProfile(
   uid: string,
   email: string | null
@@ -31,10 +29,8 @@ export async function ensureUserProfile(
   }
 
   const profile: UserProfile = {
-    userId: uid,
     email,
-    credits: 3, // free starter credits — generous enough to try, gated after
-    subscriptionTier: "free",
+    hearts: 0,
     createdAt: Date.now(),
   };
   await ref.set(profile);
@@ -50,13 +46,13 @@ export async function getUserProfile(
 }
 
 /**
- * Atomically consume `amount` credits if available. Returns the new balance,
- * or null if the user lacks sufficient credits. Runs in a transaction so two
+ * Atomically consume `amount` hearts if available. Returns the new balance,
+ * or null if the user lacks sufficient hearts. Runs in a transaction so two
  * concurrent requests can't double-spend.
  */
-export async function consumeCredits(
+export async function consumeHearts(
   uid: string,
-  amount = 1
+  amount: number
 ): Promise<number | null> {
   const ref = getAdminDb().collection("users").doc(uid);
   return getAdminDb().runTransaction(async (tx) => {
@@ -64,27 +60,20 @@ export async function consumeCredits(
     if (!snap.exists) return null;
     const profile = snap.data() as UserProfile;
 
-    // Paid tiers are unmetered here; adjust to your billing model.
-    if (profile.subscriptionTier !== "free") {
-      return profile.credits;
-    }
-    if (profile.credits < amount) return null;
+    if (profile.hearts < amount) return null;
 
-    const next = profile.credits - amount;
-    tx.update(ref, { credits: next });
+    const next = profile.hearts - amount;
+    tx.update(ref, { hearts: next });
     return next;
   });
 }
 
-/** Grant credits (called by payment webhook only). */
-export async function grantCredits(
-  uid: string,
-  amount: number
-): Promise<void> {
+/** Grant hearts (called by the Grow payment webhook, or to refund a failed generation). */
+export async function grantHearts(uid: string, amount: number): Promise<void> {
   await getAdminDb()
     .collection("users")
     .doc(uid)
-    .update({ credits: FieldValue.increment(amount) });
+    .update({ hearts: FieldValue.increment(amount) });
 }
 
 /** Save a generated pattern under the user's projects subcollection. */

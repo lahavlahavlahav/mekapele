@@ -1,13 +1,16 @@
 rules_version = '2';
 
 // =============================================================================
-// FIRESTORE SECURITY RULES — Lilou Books SaaS
+// FIRESTORE SECURITY RULES — Mekapele SaaS
 // -----------------------------------------------------------------------------
 // Principles:
 //   • A user may read/write ONLY documents they own (userId == request.auth.uid).
-//   • The billing fields `credits` and `subscriptionTier` are READ-ONLY to every
-//     client. They can only be changed by the Admin SDK (server / webhooks),
-//     which bypasses these rules entirely.
+//   • The billing field `hearts` is READ-ONLY to every client. It can only be
+//     changed by the Admin SDK (server / webhooks), which bypasses these
+//     rules entirely.
+//   • `transactions/*` records are never writable by clients, and only
+//     readable by the owning user (for order-history UI). Only the Admin SDK
+//     (create-checkout + the Grow webhook) creates/updates them.
 //   • Unauthenticated access is denied everywhere.
 // =============================================================================
 
@@ -21,31 +24,41 @@ service cloud.firestore {
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
-    // True if the incoming write does NOT attempt to change protected fields.
-    function billingUnchanged() {
-      return request.resource.data.credits == resource.data.credits
-        && request.resource.data.subscriptionTier == resource.data.subscriptionTier;
+    // True if the incoming write does NOT attempt to change the protected field.
+    function heartsUnchanged() {
+      return request.resource.data.hearts == resource.data.hearts;
     }
 
     // ---- User profile ---------------------------------------------------
     match /users/{userId} {
 
-      // Owner can read their own profile (to see credit balance, tier, etc.).
+      // Owner can read their own profile (to see hearts balance).
       allow read: if isOwner(userId);
 
-      // The client must NEVER create or seed its own credits/tier. User docs
-      // are created server-side (Admin SDK) on first login. Deny client create.
+      // The client must NEVER create or seed its own hearts. User docs are
+      // created server-side (Admin SDK) on first login. Deny client create.
       allow create: if false;
 
       // Owner may update ONLY non-billing fields (e.g. display preferences),
-      // and only if credits + subscriptionTier are left exactly as stored.
+      // and only if hearts is left exactly as stored.
       allow update: if isOwner(userId)
-        && billingUnchanged();
+        && heartsUnchanged();
 
       // No client deletes of user docs.
       allow delete: if false;
 
-      // ---- Projects (saved patterns) ----------------------------------
+      // ---- Saved patterns ----------------------------------------------
+      match /patterns/{patternId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.userId == userId;
+        allow update: if isOwner(userId)
+          && resource.data.userId == userId
+          && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId);
+      }
+
+      // ---- Projects (legacy saved patterns) -----------------------------
       // Owned subcollection: full CRUD for the owner, scoped to their uid.
       match /projects/{projectId} {
         allow read: if isOwner(userId);
@@ -56,6 +69,14 @@ service cloud.firestore {
           && request.resource.data.userId == userId;
         allow delete: if isOwner(userId);
       }
+    }
+
+    // ---- Payment transactions --------------------------------------------
+    // Created/updated only by the Admin SDK (create-checkout + Grow webhook).
+    // The owner may read their own order history; nobody writes from the client.
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
     }
 
     // ---- Default deny ---------------------------------------------------

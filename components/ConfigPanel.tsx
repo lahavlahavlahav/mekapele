@@ -7,9 +7,14 @@ import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
 import { generateFoldingPattern } from "@/lib/algorithm";
 import type { FoldingMode, FoldingPattern, ReadingDirection } from "@/lib/types";
 import Field from "./ui/Field";
+import Footer from "./Footer";
 import { useAuth } from "./AuthProvider";
 import { LoginGate, UserBadge } from "./LoginGate";
 import { savePattern } from "@/lib/firestore/patterns";
+import HeartsBadge from "./hearts/HeartsBadge";
+import ConfirmGenerateModal from "./hearts/ConfirmGenerateModal";
+import { useHearts } from "@/lib/hooks/useHearts";
+import { classifyComplexity, heartsRequired, type PatternComplexity } from "@/lib/pricing";
 
 // Three.js touches the DOM/WebGL - never render it on the server.
 const Preview3DModal = dynamic(() => import("./Preview3D/Preview3DModal"), { ssr: false });
@@ -30,7 +35,8 @@ const PRECISION_OPTIONS: { label: string; mm: number }[] = [
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
 export default function ConfigPanel() {
   const { config, setConfig, loadPattern, pattern, sourceImage, setView } = useStore();
-  const { user } = useAuth();
+  const { user, getToken } = useAuth();
+  const hearts = useHearts();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -57,6 +63,15 @@ export default function ConfigPanel() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [preview3D, setPreview3D] = useState<{ pattern: FoldingPattern; coverImageUrl: string | null } | null>(null);
   const [busy3D, setBusy3D] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    file: File;
+    pattern: FoldingPattern;
+    thumb: string | null;
+    sourceImg: string | null;
+    foldCount: number;
+    complexity: PatternComplexity;
+    requiredHearts: number;
+  } | null>(null);
 
   const onSave = async () => {
     if (!user || !pattern) return;
@@ -102,8 +117,10 @@ export default function ConfigPanel() {
     return true;
   }
 
-  // Generate the real pattern locally in the browser. Requires Google sign-in,
-  // but produces the exact measurements immediately — no credits, no server.
+  // Step 1: compute the pattern locally (fast, free) just to know the fold
+  // count/complexity/cost for the confirmation modal. Requires sign-in.
+  // Nothing is charged yet — that happens server-side in onConfirmGenerate,
+  // which recomputes the fold count authoritatively before billing hearts.
   const onGenerate = async () => {
     setError(null);
     setShowGate(false);
@@ -124,11 +141,55 @@ export default function ConfigPanel() {
         // (not PNG) at this size - see makeThumbnail's docs on why.
         makeThumbnail(file, 1600, "image/jpeg", 0.88),
       ]);
-      const pattern = generateFoldingPattern(grid, config);
-      loadPattern(pattern, thumb, sourceImg);
-      setView("tracker");
+      const localPattern = generateFoldingPattern(grid, config);
+      const foldCount = localPattern.pages.length;
+      setConfirmState({
+        file,
+        pattern: localPattern,
+        thumb,
+        sourceImg,
+        foldCount,
+        complexity: classifyComplexity(foldCount),
+        requiredHearts: heartsRequired(foldCount),
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "יצירת התבנית נכשלה. נסו שוב.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Step 2: on confirm, send the image to the gated server route, which
+  // recomputes the fold count itself and atomically deducts the real cost
+  // before returning the authoritative pattern.
+  const onConfirmGenerate = async () => {
+    if (!confirmState) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      const form = new FormData();
+      form.set("image", confirmState.file);
+      form.set("config", JSON.stringify(config));
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        if (res.status === 402) {
+          setError("אין מספיק לבבות בחשבונך. רכשו לבבות נוספים ונסו שוב.");
+        } else {
+          setError(json.error || "יצירת התבנית נכשלה. נסו שוב.");
+        }
+        return;
+      }
+      loadPattern(json.pattern, confirmState.thumb, confirmState.sourceImg);
+      setConfirmState(null);
+      setView("tracker");
+    } catch {
+      setError("יצירת התבנית נכשלה. נסו שוב.");
     } finally {
       setBusy(false);
     }
@@ -160,10 +221,7 @@ export default function ConfigPanel() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-9 w-auto" />
         <div className="flex-1">
-          <h1 className="font-display text-2xl">סטודיו לקיפול ספרים</h1>
-          <p className="text-sm text-[var(--ink-soft)]">
-            הפכו תמונה לתבנית קיפול, קיפול אחר קיפול.
-          </p>
+          <p className="text-sm text-[var(--ink-soft)]">ע״י האמנית והיזמית להב ברק</p>
         </div>
         <button
           onClick={() => setView("patterns")}
@@ -172,6 +230,7 @@ export default function ConfigPanel() {
         >
           התבניות שלי
         </button>
+        <HeartsBadge />
         <UserBadge />
       </header>
 
@@ -462,11 +521,27 @@ export default function ConfigPanel() {
         </div>
       )}
 
+      <Footer />
+
       {preview3D && (
         <Preview3DModal
           pattern={preview3D.pattern}
           coverImageUrl={preview3D.coverImageUrl}
           onClose={() => setPreview3D(null)}
+        />
+      )}
+
+      {confirmState && (
+        <ConfirmGenerateModal
+          previewUrl={previewUrl}
+          pattern={confirmState.pattern}
+          foldCount={confirmState.foldCount}
+          complexity={confirmState.complexity}
+          requiredHearts={confirmState.requiredHearts}
+          currentHearts={hearts ?? 0}
+          busy={busy}
+          onConfirm={onConfirmGenerate}
+          onClose={() => setConfirmState(null)}
         />
       )}
     </div>

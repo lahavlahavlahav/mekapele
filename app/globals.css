@@ -62,3 +62,31 @@ html, body {
   tr { break-inside: avoid; }
 }
 .print-only { display: none; }
+
+/* =============================================================================
+   ACCESSIBILITY WIDGET overrides — see components/AccessibilityWidget.tsx
+   ========================================================================== */
+:root[data-a11y-font="lg"] { font-size: 112.5%; }
+:root[data-a11y-font="xl"] { font-size: 125%; }
+
+:root[data-a11y-contrast="high"] {
+  --paper: #ffffff;
+  --paper-2: #ffffff;
+  --ink: #000000;
+  --ink-soft: #000000;
+  --line: #000000;
+  --coral: #b00020;
+  --coral-deep: #7a0016;
+}
+:root[data-a11y-contrast="high"] * {
+  border-color: #000 !important;
+}
+
+:root[data-a11y-underline="true"] a {
+  text-decoration: underline !important;
+}
+
+:root[data-a11y-motion="reduce"] * {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+}

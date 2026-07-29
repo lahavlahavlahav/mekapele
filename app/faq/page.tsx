@@ -54,16 +54,17 @@ export default function FaqPage() {
           style={{ background: "var(--paper-2)", border: "1px solid var(--line)" }}
         >
           <h2 className="font-display text-lg mb-3">חבילות לבבות</h2>
-          <ul className="space-y-1.5 text-[var(--ink-soft)]">
+          <ul className="space-y-2 text-[var(--ink-soft)]">
             {HEART_PACKAGES.map((pkg) => (
-              <li key={pkg.id} className="flex justify-between">
+              <li key={pkg.id} className="flex justify-between items-baseline">
                 <span>
-                  {pkg.hearts} {pkg.hearts === 1 ? "לב" : "לבבות"}
+                  <span className="font-semibold text-[var(--ink)]">{pkg.label}</span>
                   {pkg.popular && (
                     <span className="mr-2 text-xs font-bold" style={{ color: "var(--coral-deep)" }}>
                       (הכי משתלם)
                     </span>
                   )}
+                  {pkg.subtitle && <span className="block text-xs">{pkg.subtitle}</span>}
                 </span>
                 <span className="font-semibold tabular">₪{pkg.priceIls}</span>
               </li>

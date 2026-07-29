@@ -5,16 +5,27 @@
 // =============================================================================
 
 export interface HeartPackage {
-  id: "1" | "5" | "10";
+  id: "1" | "2" | "8";
+  /** Product-facing name (what the customer sees), not just a heart count. */
+  label: string;
+  /** Optional subtitle, e.g. explaining bundle value. */
+  subtitle?: string;
   hearts: number;
   priceIls: number;
   popular?: boolean;
 }
 
 export const HEART_PACKAGES: HeartPackage[] = [
-  { id: "1", hearts: 1, priceIls: 19 },
-  { id: "5", hearts: 5, priceIls: 75, popular: true },
-  { id: "10", hearts: 10, priceIls: 150 },
+  { id: "1", label: "תבנית קלה", hearts: 1, priceIls: 19 },
+  { id: "2", label: "תבנית מתקדמת", hearts: 2, priceIls: 38 },
+  {
+    id: "8",
+    label: "באנדל משתלם",
+    subtitle: "שווה ל-8 תבניות פשוטות, 4 מתקדמות, או מיקס!",
+    hearts: 8,
+    priceIls: 100,
+    popular: true,
+  },
 ];
 
 export function getHeartPackage(packageId: string): HeartPackage | null {

@@ -115,27 +115,31 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
               key={pkg.id}
               onClick={() => onBuy(pkg.id)}
               disabled={busyId !== null}
-              className="w-full flex items-center justify-between px-4 py-3.5 rounded-[var(--radius)] border text-right disabled:opacity-60"
+              className="w-full px-4 py-3.5 rounded-[var(--radius)] border text-right disabled:opacity-60"
               style={{
                 borderColor: pkg.popular ? "var(--coral)" : "var(--line)",
                 background: pkg.popular ? "rgba(226,97,74,0.06)" : "var(--paper-2)",
               }}
             >
-              <span className="font-semibold">
-                {busyId === pkg.id ? "מעביר לתשלום…" : `₪${pkg.priceIls}`}
-              </span>
-              <span className="flex items-center gap-2">
-                {pkg.popular && (
-                  <span
-                    className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
-                    style={{ background: "var(--coral)" }}
-                  >
-                    הכי משתלם
-                  </span>
-                )}
-                <span>
-                  {pkg.hearts} {pkg.hearts === 1 ? "לב" : "לבבות"} {"❤️".repeat(Math.min(pkg.hearts, 3))}
+              <span className="flex items-center justify-between">
+                <span className="font-semibold">
+                  {busyId === pkg.id ? "מעביר לתשלום…" : pkg.label}
                 </span>
+                <span className="flex items-center gap-2">
+                  {pkg.popular && (
+                    <span
+                      className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                      style={{ background: "var(--coral)" }}
+                    >
+                      הכי משתלם
+                    </span>
+                  )}
+                  <span className="font-semibold tabular">₪{pkg.priceIls}</span>
+                </span>
+              </span>
+              <span className="block mt-1 text-xs text-[var(--ink-soft)]">
+                {pkg.subtitle ??
+                  `${pkg.hearts} ${pkg.hearts === 1 ? "לב" : "לבבות"} ${"❤️".repeat(Math.min(pkg.hearts, 3))}`}
               </span>
             </button>
           ))}

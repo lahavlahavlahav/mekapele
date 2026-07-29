@@ -9,8 +9,13 @@
 // =============================================================================
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
+import type { FoldingPattern } from "@/lib/types";
 import type { PatternComplexity } from "@/lib/pricing";
 import PurchaseModal from "./PurchaseModal";
+
+// Three.js touches the DOM/WebGL - never render it on the server.
+const Preview3DModal = dynamic(() => import("@/components/Preview3D/Preview3DModal"), { ssr: false });
 
 const COMPLEXITY_LABEL: Record<PatternComplexity, string> = {
   simple: "תבנית פשוטה",
@@ -19,6 +24,7 @@ const COMPLEXITY_LABEL: Record<PatternComplexity, string> = {
 
 export default function ConfirmGenerateModal({
   previewUrl,
+  pattern,
   foldCount,
   complexity,
   requiredHearts,
@@ -28,6 +34,7 @@ export default function ConfirmGenerateModal({
   onClose,
 }: {
   previewUrl: string | null;
+  pattern: FoldingPattern;
   foldCount: number;
   complexity: PatternComplexity;
   requiredHearts: number;
@@ -37,6 +44,7 @@ export default function ConfirmGenerateModal({
   onClose: () => void;
 }) {
   const [showPurchase, setShowPurchase] = useState(false);
+  const [show3D, setShow3D] = useState(false);
   const canAfford = currentHearts >= requiredHearts;
 
   return (
@@ -62,9 +70,18 @@ export default function ConfirmGenerateModal({
           <img
             src={previewUrl}
             alt="התמונה שהועלתה"
-            className="max-h-40 mx-auto rounded-lg mb-4 object-contain"
+            className="max-h-40 mx-auto rounded-lg mb-2 object-contain"
           />
         )}
+
+        <button
+          type="button"
+          onClick={() => setShow3D(true)}
+          className="w-full mb-4 py-2 rounded-lg font-semibold border text-sm"
+          style={{ borderColor: "var(--line)" }}
+        >
+          צפו בתלת-ממד לפני שמחליטים
+        </button>
 
         <div
           className="rounded-lg p-3 mb-4 text-sm space-y-1"
@@ -117,6 +134,14 @@ export default function ConfirmGenerateModal({
       </div>
 
       {showPurchase && <PurchaseModal onClose={() => setShowPurchase(false)} />}
+
+      {show3D && (
+        <Preview3DModal
+          pattern={pattern}
+          coverImageUrl={previewUrl}
+          onClose={() => setShow3D(false)}
+        />
+      )}
     </div>
   );
 }

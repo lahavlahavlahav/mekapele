@@ -221,10 +221,7 @@ export default function ConfigPanel() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-9 w-auto" />
         <div className="flex-1">
-          <h1 className="font-display text-2xl">סטודיו לקיפול ספרים</h1>
-          <p className="text-sm text-[var(--ink-soft)]">
-            הפכו תמונה לתבנית קיפול, קיפול אחר קיפול.
-          </p>
+          <p className="text-sm text-[var(--ink-soft)]">ע״י האמנית והיזמית להב ברק</p>
         </div>
         <button
           onClick={() => setView("patterns")}
@@ -541,6 +538,7 @@ export default function ConfigPanel() {
       {confirmState && (
         <ConfirmGenerateModal
           previewUrl={previewUrl}
+          pattern={confirmState.pattern}
           foldCount={confirmState.foldCount}
           complexity={confirmState.complexity}
           requiredHearts={confirmState.requiredHearts}

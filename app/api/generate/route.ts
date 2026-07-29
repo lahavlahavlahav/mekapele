@@ -24,7 +24,7 @@ import {
   MAX_UPLOAD_BYTES,
 } from "@/lib/security/validateUpload";
 import { extractPixelGridServer } from "@/lib/security/imageProcessorServer";
-import { generateFoldingPattern } from "@/lib/algorithm";
+import { generateFoldingPattern, countFolds } from "@/lib/algorithm";
 import { consumeHearts, ensureUserProfile } from "@/lib/firestore/projects";
 import { classifyComplexity, heartsRequired } from "@/lib/pricing";
 import type { BookConfig } from "@/lib/types";
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const foldCount = pattern.pages.length;
+  const foldCount = countFolds(pattern);
   const complexity = classifyComplexity(foldCount);
   const cost = heartsRequired(foldCount);
 

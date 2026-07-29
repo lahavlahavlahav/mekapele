@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 import { buildLeafShape, buildFlatLeafShape, orientLeaf } from "@/lib/book3d/leafGeometry";
-import type { FoldingPattern } from "@/lib/types";
+import type { FoldingPattern, ReadingDirection } from "@/lib/types";
 
 interface BookModelProps {
   pattern: FoldingPattern;
@@ -27,16 +27,25 @@ const COVER_COLOR = "#1d2433";
 const ENDPAPER_COLOR = "#d8c19a";
 const STAND_COLOR = "#5c3a21";
 
-/** Every real leaf gets its own angle, spread across the full fan (-leafMaxAngle..leafMaxAngle). */
-function useLeafAngles(leafCount: number, leafMaxAngle: number) {
+/**
+ * Every real leaf gets its own angle, spread across the full fan
+ * (-leafMaxAngle..leafMaxAngle). Leaf 0 (page 1) must land on the same
+ * physical side the 2D algorithm already put it on: negative angle = left,
+ * positive = right (see orientLeaf's depthDir.x sign). LTR keeps leaf 0 on
+ * the left (natural order); RTL mirrors it to the right, matching
+ * orderColumnsByDirection in lib/algorithm.ts so the 3D preview and the
+ * generated pattern always agree on which side the book "starts."
+ */
+function useLeafAngles(leafCount: number, leafMaxAngle: number, direction: ReadingDirection) {
   return useMemo(() => {
     const angles: number[] = [];
     for (let i = 0; i < leafCount; i++) {
       const t = leafCount <= 1 ? 0.5 : i / (leafCount - 1);
-      angles.push(-leafMaxAngle + t * (2 * leafMaxAngle));
+      const signedT = direction === "RTL" ? 1 - t : t;
+      angles.push(-leafMaxAngle + signedT * (2 * leafMaxAngle));
     }
     return angles;
-  }, [leafCount, leafMaxAngle]);
+  }, [leafCount, leafMaxAngle, direction]);
 }
 
 function LeafFan({
@@ -97,7 +106,7 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg }: Book
   const coverHalfAngle = openAngleRad / 2;
   const leafMaxAngle = coverHalfAngle * LEAF_FRACTION;
 
-  const angles = useLeafAngles(leafCount, leafMaxAngle);
+  const angles = useLeafAngles(leafCount, leafMaxAngle, config.direction);
 
   const foldedGeometries = useMemo(
     () =>

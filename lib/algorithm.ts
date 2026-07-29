@@ -445,3 +445,14 @@ function generateCutAndFold(
   }
   return pages;
 }
+
+/**
+ * Total fold count for pricing/complexity purposes: one fold = one mark
+ * (one measured line on a leaf), NOT one leaf. MMF leaves usually carry 2
+ * marks each; Cut & Fold leaves can carry more (4, 6, ...). Summing
+ * `marksCm.length` across all leaves gives the real number of individual
+ * fold marks in the pattern.
+ */
+export function countFolds(pattern: FoldingPattern): number {
+  return pattern.pages.reduce((sum, p) => sum + p.marksCm.length, 0);
+}

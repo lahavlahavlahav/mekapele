@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
-import { generateFoldingPattern } from "@/lib/algorithm";
+import { generateFoldingPattern, countFolds } from "@/lib/algorithm";
 import type { FoldingMode, FoldingPattern, ReadingDirection } from "@/lib/types";
 import Field from "./ui/Field";
 import Footer from "./Footer";
@@ -142,7 +142,7 @@ export default function ConfigPanel() {
         makeThumbnail(file, 1600, "image/jpeg", 0.88),
       ]);
       const localPattern = generateFoldingPattern(grid, config);
-      const foldCount = localPattern.pages.length;
+      const foldCount = countFolds(localPattern);
       setConfirmState({
         file,
         pattern: localPattern,
@@ -494,15 +494,6 @@ export default function ConfigPanel() {
           {busy3D ? "מכין תצוגה…" : "תצוגת 3D"}
         </button>
 
-        {pattern && (
-          <button
-            onClick={() => setView("tracker")}
-            className="px-5 rounded-[var(--radius)] font-semibold border"
-            style={{ borderColor: "var(--line)" }}
-          >
-            המשך
-          </button>
-        )}
         {pattern && user && (
           <button
             onClick={onSave}

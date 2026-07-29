@@ -121,6 +121,9 @@ export default function WorkshopTracker() {
             currentPage={currentPage}
             foldedPages={foldedPages}
             direction={pattern.config.direction}
+            pageHeightCm={pattern.config.pageHeightCm}
+            verticalSpacingCm={pattern.config.verticalSpacingCm}
+            precisionMm={pattern.config.precisionMm}
           />
           <div
             className="rounded-[var(--radius)] p-5 border"

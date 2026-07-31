@@ -25,8 +25,12 @@ export async function verifyAuth(
   try {
     const decoded = await getAdminAuth().verifyIdToken(match[1], true);
     return { uid: decoded.uid, email: decoded.email ?? null };
-  } catch {
+  } catch (err) {
     // Expired, malformed, or revoked token → treat as unauthenticated.
+    // Logged (not swallowed silently) — a systemic verification failure
+    // looks identical to "no token sent" from the client's perspective,
+    // so this is the only way to tell them apart from server logs.
+    console.error("verifyAuth: verifyIdToken failed:", err);
     return null;
   }
 }

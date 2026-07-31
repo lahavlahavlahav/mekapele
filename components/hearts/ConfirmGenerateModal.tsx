@@ -30,6 +30,7 @@ export default function ConfirmGenerateModal({
   requiredHearts,
   currentHearts,
   busy,
+  error,
   onConfirm,
   onClose,
 }: {
@@ -40,6 +41,7 @@ export default function ConfirmGenerateModal({
   requiredHearts: number;
   currentHearts: number;
   busy: boolean;
+  error?: string | null;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -106,6 +108,15 @@ export default function ConfirmGenerateModal({
             <span className="font-semibold tabular">{currentHearts} לבבות</span>
           </div>
         </div>
+
+        {error && (
+          <p
+            className="mb-4 text-sm rounded-lg px-3 py-2"
+            style={{ background: "rgba(226,97,74,0.12)", color: "var(--coral-deep)" }}
+          >
+            {error}
+          </p>
+        )}
 
         {canAfford ? (
           <button

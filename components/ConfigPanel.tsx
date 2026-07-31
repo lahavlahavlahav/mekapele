@@ -531,6 +531,7 @@ export default function ConfigPanel() {
           requiredHearts={confirmState.requiredHearts}
           currentHearts={hearts ?? 0}
           busy={busy}
+          error={error}
           onConfirm={onConfirmGenerate}
           onClose={() => setConfirmState(null)}
         />

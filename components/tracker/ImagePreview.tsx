@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReadingDirection } from "@/lib/types";
+import type { PageMeasurement, ReadingDirection } from "@/lib/types";
 import { orderColumnsByDirection, sampleColumnBounds, pixelYToCm } from "@/lib/algorithm";
 
 interface ImagePreviewProps {
@@ -13,6 +13,8 @@ interface ImagePreviewProps {
   pageHeightCm: number;
   verticalSpacingCm: number;
   precisionMm: number;
+  /** So a click can be checked against that leaf's actual mark bands - a blank height in the image should never report a mark. */
+  pages: PageMeasurement[];
   /** Jumps the tracker to the clicked leaf, so the measurements panel updates immediately. */
   onSelectPage: (page: number) => void;
 }
@@ -22,6 +24,18 @@ interface ClickInfo {
   yPct: number;
   leaf: number;
   cm: number;
+  /** Whether the clicked height actually falls inside one of that leaf's marked bands. */
+  onMark: boolean;
+}
+
+/** True if `cm` falls within any [start, end] pair of the leaf's marksCm (order-independent). */
+function heightHasMark(marksCm: number[], cm: number): boolean {
+  for (let i = 0; i + 1 < marksCm.length; i += 2) {
+    const lo = Math.min(marksCm[i], marksCm[i + 1]);
+    const hi = Math.max(marksCm[i], marksCm[i + 1]);
+    if (cm >= lo && cm <= hi) return true;
+  }
+  return false;
 }
 
 /**
@@ -33,9 +47,11 @@ interface ClickInfo {
  * Slice positions honor reading direction so the fill grows from the
  * correct edge (left for LTR, right for RTL).
  *
- * Clicking anywhere on the image jumps the tracker straight to that leaf
+ * Clicking a colored (marked) height jumps the tracker straight to that leaf
  * (its measurements appear in FocusCard) and shows a brief floating label
- * with the exact height in cm at the click point.
+ * with the exact height in cm. Clicking a blank height does neither - the
+ * picture and the measurements must always agree, so a spot with nothing
+ * drawn there can never report a mark.
  */
 export default function ImagePreview({
   thumbnail,
@@ -46,6 +62,7 @@ export default function ImagePreview({
   pageHeightCm,
   verticalSpacingCm,
   precisionMm,
+  pages,
   onSelectPage,
 }: ImagePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -137,8 +154,11 @@ export default function ImagePreview({
     }
 
     const cm = pixelYToCm(nativeY, canvas.height, verticalSpacingCm, pageHeightCm, precisionMm);
-    setClickInfo({ xPct, yPct, leaf: page, cm });
-    onSelectPage(page);
+    const onMark = heightHasMark(pages[page - 1]?.marksCm ?? [], cm);
+    setClickInfo({ xPct, yPct, leaf: page, cm, onMark });
+    // A blank height means there's nothing here to fold - don't jump the
+    // tracker to it, matching the picture exactly (colored = has a mark).
+    if (onMark) onSelectPage(page);
   };
 
   return (
@@ -157,14 +177,16 @@ export default function ImagePreview({
         <div
           className="absolute px-2 py-1 rounded-lg text-xs font-semibold text-white tabular pointer-events-none"
           style={{
-            background: "rgba(29,36,51,0.9)",
+            background: clickInfo.onMark ? "rgba(29,36,51,0.9)" : "rgba(29,36,51,0.55)",
             left: `${clickInfo.xPct}%`,
             top: `${clickInfo.yPct}%`,
             transform: "translate(-50%, -120%)",
             whiteSpace: "nowrap",
           }}
         >
-          עלה {clickInfo.leaf} · {clickInfo.cm.toFixed(1)} ס״מ
+          {clickInfo.onMark
+            ? `עלה ${clickInfo.leaf} · ${clickInfo.cm.toFixed(1)} ס״מ`
+            : "אין קיפול בגובה הזה"}
         </div>
       )}
     </div>

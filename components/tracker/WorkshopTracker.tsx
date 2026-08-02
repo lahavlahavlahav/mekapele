@@ -121,6 +121,7 @@ export default function WorkshopTracker() {
             pageHeightCm={pattern.config.pageHeightCm}
             verticalSpacingCm={pattern.config.verticalSpacingCm}
             precisionMm={pattern.config.precisionMm}
+            pages={pattern.pages}
             onSelectPage={goToPage}
           />
         </section>

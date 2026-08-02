@@ -11,6 +11,8 @@ interface BookModelProps {
   coverImageUrl: string | null;
   /** Dihedral angle between front and back covers, in degrees: 0 = closed, 180 = flat open. */
   openAngleDeg: number;
+  /** Solid color for both covers when no cover image is set. */
+  coverColor: string;
 }
 
 // Original fixed design used MAX_ANGLE=1.35 rad (~77deg) leaf half-spread and
@@ -23,10 +25,8 @@ const DEG2RAD = Math.PI / 180;
 const ENDPAPER_GUTTER_FRACTION = 0.35;
 
 const PAGE_COLOR = "#efe4c8";
-// Covers share the endpapers' beige tone rather than a distinct dark navy -
-// a plain (no cover-image) book reads as one consistent beige object instead
-// of navy covers bookending beige pages/spine.
-const COVER_COLOR = "#d8c19a";
+/** Default cover color (dark navy) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
+export const DEFAULT_COVER_COLOR = "#1d2433";
 const ENDPAPER_COLOR = "#d8c19a";
 const STAND_COLOR = "#5c3a21";
 
@@ -97,7 +97,7 @@ function orient(angle: number, pageHeightCm: number): { quaternion: THREE.Quater
   return { quaternion: dummy.quaternion.clone(), position: dummy.position.clone() };
 }
 
-export default function BookModel({ pattern, coverImageUrl, openAngleDeg }: BookModelProps) {
+export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverColor }: BookModelProps) {
   const { config, pages } = pattern;
   const leafCount = pages.length;
   const pageHeightCm = config.pageHeightCm;
@@ -179,12 +179,13 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg }: Book
       <Endpaper geometry={endpaperGeometry} angle={endpaperAngleFront} pageHeightCm={pageHeightCm} color={ENDPAPER_COLOR} />
 
       {/* Covers cap the fan on both ends. */}
-      <BackCover geometry={coverGeometry} angle={coverAngleBack} pageHeightCm={pageHeightCm} />
+      <BackCover geometry={coverGeometry} angle={coverAngleBack} pageHeightCm={pageHeightCm} color={coverColor} />
       <CoverWithArt
         geometry={coverGeometry}
         angle={coverAngleFront}
         pageHeightCm={pageHeightCm}
         imageUrl={coverImageUrl}
+        color={coverColor}
       />
 
       {/* Flat wooden base plinth under the standing, fanned-open book. */}
@@ -226,19 +227,21 @@ function BackCover({
   geometry,
   angle,
   pageHeightCm,
+  color,
 }: {
   geometry: THREE.ExtrudeGeometry;
   angle: number;
   pageHeightCm: number;
+  color: string;
 }) {
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
       <meshStandardMaterial
-        color={COVER_COLOR}
+        color={color}
         roughness={0.5}
         metalness={0.1}
-        emissive={COVER_COLOR}
+        emissive={color}
         emissiveIntensity={0.15}
       />
     </mesh>
@@ -250,11 +253,13 @@ function CoverWithArt({
   angle,
   pageHeightCm,
   imageUrl,
+  color,
 }: {
   geometry: THREE.ExtrudeGeometry;
   angle: number;
   pageHeightCm: number;
   imageUrl: string | null;
+  color: string;
 }) {
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
@@ -263,10 +268,10 @@ function CoverWithArt({
         <CoverMaterial imageUrl={imageUrl} />
       ) : (
         <meshStandardMaterial
-          color={COVER_COLOR}
+          color={color}
           roughness={0.5}
           metalness={0.1}
-          emissive={COVER_COLOR}
+          emissive={color}
           emissiveIntensity={0.15}
         />
       )}

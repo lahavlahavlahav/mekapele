@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
-import BookModel from "./BookModel";
+import BookModel, { DEFAULT_COVER_COLOR } from "./BookModel";
 import type { FoldingPattern } from "@/lib/types";
 
 interface Preview3DModalProps {
@@ -15,6 +15,8 @@ interface Preview3DModalProps {
 /** Fullscreen modal hosting the interactive 3D book preview. */
 export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Preview3DModalProps) {
   const [openAngleDeg, setOpenAngleDeg] = useState(90);
+  // Only visible when no cover image is set - an uploaded cover always wins.
+  const [coverColor, setCoverColor] = useState(DEFAULT_COVER_COLOR);
   const pageHeightCm = pattern.config.pageHeightCm;
   const radius = pageHeightCm * 1.4;
   const target: [number, number, number] = [0, 0, 0];
@@ -61,7 +63,12 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           <directionalLight position={[-radius, radius * 0.5, -radius]} intensity={0.35} />
 
           <Suspense fallback={null}>
-            <BookModel pattern={pattern} coverImageUrl={coverImageUrl} openAngleDeg={openAngleDeg} />
+            <BookModel
+              pattern={pattern}
+              coverImageUrl={coverImageUrl}
+              openAngleDeg={openAngleDeg}
+              coverColor={coverColor}
+            />
           </Suspense>
 
           <ContactShadows
@@ -93,9 +100,25 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           />
         </div>
 
-        <p className="pointer-events-none absolute bottom-3 right-3 text-xs text-[var(--paper)] opacity-70">
+        <p className="pointer-events-none absolute bottom-16 right-3 text-xs text-[var(--paper)] opacity-70">
           גררו לסיבוב · גלגלת/צביטה לזום
         </p>
+
+        {/* Cover color picker - irrelevant once a real cover image is set, so hidden then. */}
+        {!coverImageUrl && (
+          <label
+            className="absolute bottom-3 right-3 flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer"
+            style={{ background: "rgba(29,36,51,0.7)" }}
+          >
+            <span className="text-xs text-[var(--paper)] whitespace-nowrap">צבע הכריכה</span>
+            <input
+              type="color"
+              value={coverColor}
+              onChange={(e) => setCoverColor(e.target.value)}
+              className="h-6 w-9 rounded border-0 bg-transparent cursor-pointer"
+            />
+          </label>
+        )}
 
         {/* Opening-angle control: 0deg (closed) .. 180deg (flat open), default 90deg. */}
         <div

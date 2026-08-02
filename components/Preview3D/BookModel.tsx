@@ -207,7 +207,14 @@ function Endpaper({
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      <meshStandardMaterial color={color} roughness={0.7} metalness={0} side={THREE.DoubleSide} />
+      <meshStandardMaterial
+        color={color}
+        roughness={0.7}
+        metalness={0}
+        side={THREE.DoubleSide}
+        emissive={color}
+        emissiveIntensity={0.15}
+      />
     </mesh>
   );
 }

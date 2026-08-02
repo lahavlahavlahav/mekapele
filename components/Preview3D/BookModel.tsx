@@ -165,7 +165,7 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg }: Book
           through the gap where a run of blank leaves stays folded flat. */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[spineRadius, spineRadius, pageHeightCm, 16]} />
-        <meshStandardMaterial color={COVER_COLOR} roughness={0.5} metalness={0.1} />
+        <meshStandardMaterial color={ENDPAPER_COLOR} roughness={0.5} metalness={0.1} />
       </mesh>
 
       {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}

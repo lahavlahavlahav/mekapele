@@ -74,6 +74,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await parseBody(req);
+  // The payload shape has never been confirmed against a real Grow delivery
+  // (see the file-level comment) — log it in full every time so a delivery
+  // that silently falls through one of the branches below (wrong field
+  // names, unexpected "err" value, etc.) still leaves a trace in Vercel
+  // logs instead of vanishing as a plain 200.
+  console.log("Grow webhook: raw payload", JSON.stringify(body));
 
   const data = (body.data as Record<string, unknown> | undefined) ?? body;
   const receivedKey = String(body.webhookKey ?? data.webhookKey ?? "");
@@ -86,6 +92,7 @@ export async function POST(req: NextRequest) {
 
   if (err !== "0") {
     // Not a successful payment — acknowledge without touching Firestore.
+    console.log(`Grow webhook: acknowledged without crediting (err=${JSON.stringify(err)})`);
     return NextResponse.json({ received: true }, { status: 200 });
   }
 

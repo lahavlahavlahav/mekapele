@@ -23,7 +23,10 @@ const DEG2RAD = Math.PI / 180;
 const ENDPAPER_GUTTER_FRACTION = 0.35;
 
 const PAGE_COLOR = "#efe4c8";
-const COVER_COLOR = "#1d2433";
+// Covers share the endpapers' beige tone rather than a distinct dark navy -
+// a plain (no cover-image) book reads as one consistent beige object instead
+// of navy covers bookending beige pages/spine.
+const COVER_COLOR = "#d8c19a";
 const ENDPAPER_COLOR = "#d8c19a";
 const STAND_COLOR = "#5c3a21";
 
@@ -231,7 +234,13 @@ function BackCover({
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      <meshStandardMaterial color={COVER_COLOR} roughness={0.5} metalness={0.1} />
+      <meshStandardMaterial
+        color={COVER_COLOR}
+        roughness={0.5}
+        metalness={0.1}
+        emissive={COVER_COLOR}
+        emissiveIntensity={0.15}
+      />
     </mesh>
   );
 }
@@ -253,7 +262,13 @@ function CoverWithArt({
       {imageUrl ? (
         <CoverMaterial imageUrl={imageUrl} />
       ) : (
-        <meshStandardMaterial color={COVER_COLOR} roughness={0.5} metalness={0.1} />
+        <meshStandardMaterial
+          color={COVER_COLOR}
+          roughness={0.5}
+          metalness={0.1}
+          emissive={COVER_COLOR}
+          emissiveIntensity={0.15}
+        />
       )}
     </mesh>
   );

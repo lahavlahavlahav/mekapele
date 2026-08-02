@@ -18,6 +18,7 @@ export default function WorkshopTracker() {
   const {
     pattern,
     thumbnail,
+    sourceImage,
     currentPage,
     foldedPages,
     nextPage,
@@ -113,7 +114,13 @@ export default function WorkshopTracker() {
             jump straight to it, its gold outline is the "you're here" mark. */}
         <section>
           <ImagePreview
-            thumbnail={thumbnail}
+            // The 480px thumbnail blurs away fine detail (thin serifs, small
+            // gaps) that the algorithm's full-resolution working image still
+            // resolves as ink - clicking a spot that looks blank at thumbnail
+            // resolution could report a mark that's real but invisible here.
+            // sourceImage is that same working-resolution image (see
+            // GridEditor, which already prefers it for this exact reason).
+            thumbnail={sourceImage ?? thumbnail}
             totalLeaves={totalLeaves}
             currentPage={currentPage}
             foldedPages={foldedPages}

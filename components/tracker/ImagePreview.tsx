@@ -13,6 +13,8 @@ interface ImagePreviewProps {
   pageHeightCm: number;
   verticalSpacingCm: number;
   precisionMm: number;
+  /** Jumps the tracker to the clicked leaf, so the measurements panel updates immediately. */
+  onSelectPage: (page: number) => void;
 }
 
 interface ClickInfo {
@@ -31,9 +33,9 @@ interface ClickInfo {
  * Slice positions honor reading direction so the fill grows from the
  * correct edge (left for LTR, right for RTL).
  *
- * Clicking anywhere on the image shows which leaf/page that point falls in
- * and its exact height in cm — a quick way to check numbers without opening
- * the full manual grid editor.
+ * Clicking anywhere on the image jumps the tracker straight to that leaf
+ * (its measurements appear in FocusCard) and shows a brief floating label
+ * with the exact height in cm at the click point.
  */
 export default function ImagePreview({
   thumbnail,
@@ -44,6 +46,7 @@ export default function ImagePreview({
   pageHeightCm,
   verticalSpacingCm,
   precisionMm,
+  onSelectPage,
 }: ImagePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [clickInfo, setClickInfo] = useState<ClickInfo | null>(null);
@@ -135,6 +138,7 @@ export default function ImagePreview({
 
     const cm = pixelYToCm(nativeY, canvas.height, verticalSpacingCm, pageHeightCm, precisionMm);
     setClickInfo({ xPct, yPct, leaf: page, cm });
+    onSelectPage(page);
   };
 
   return (
@@ -147,7 +151,7 @@ export default function ImagePreview({
         onClick={handleClick}
         className="w-full h-auto block"
         style={{ cursor: "crosshair" }}
-        aria-label="תצוגת התקדמות הקיפול - לחצו במקום כלשהו כדי לראות את המספרים שם"
+        aria-label="תצוגת התקדמות הקיפול - לחצו במקום כלשהו כדי לעבור לעמוד הזה ולראות את המספרים שלו"
       />
       {clickInfo && (
         <div

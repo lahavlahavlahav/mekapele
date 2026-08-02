@@ -53,6 +53,13 @@ export default function WorkshopTracker() {
   const atStart = currentPage <= 1;
   const atEnd = currentPage >= totalLeaves;
 
+  const goToRandomPage = () => {
+    if (totalLeaves <= 1) return;
+    let page = Math.floor(Math.random() * totalLeaves) + 1;
+    if (page === currentPage) page = (page % totalLeaves) + 1;
+    goToPage(page);
+  };
+
   return (
     <div className="min-h-screen pb-28">
       {/* Header */}
@@ -101,20 +108,10 @@ export default function WorkshopTracker() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 pt-5 grid gap-6 lg:grid-cols-[1fr_360px]">
-        {/* Left: focus + nav */}
-        <section className="order-2 lg:order-1">
-          <FocusCard
-            measurement={measurement}
-            totalLeaves={totalLeaves}
-            mode={pattern.config.mode}
-            isFolded={isFolded}
-            onToggleFold={isFolded ? unmarkCurrentFolded : markCurrentFolded}
-          />
-        </section>
-
-        {/* Right: preview + progress */}
-        <aside className="order-1 lg:order-2 space-y-5">
+      <main className="max-w-6xl mx-auto px-4 pt-5 grid gap-6 lg:grid-cols-[1fr_380px]">
+        {/* Big grid: the image/lines are the main event - click any leaf to
+            jump straight to it, its gold outline is the "you're here" mark. */}
+        <section>
           <ImagePreview
             thumbnail={thumbnail}
             totalLeaves={totalLeaves}
@@ -124,18 +121,38 @@ export default function WorkshopTracker() {
             pageHeightCm={pattern.config.pageHeightCm}
             verticalSpacingCm={pattern.config.verticalSpacingCm}
             precisionMm={pattern.config.precisionMm}
+            onSelectPage={goToPage}
+          />
+        </section>
+
+        {/* Side panel: measurements for whichever leaf is selected + progress. */}
+        <aside className="space-y-5">
+          <FocusCard
+            measurement={measurement}
+            totalLeaves={totalLeaves}
+            mode={pattern.config.mode}
+            isFolded={isFolded}
+            onToggleFold={isFolded ? unmarkCurrentFolded : markCurrentFolded}
           />
           <div
             className="rounded-[var(--radius)] p-5 border"
             style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
           >
             <ProgressBar folded={foldedPages.length} total={totalLeaves} />
-            <button
-              onClick={resetProgress}
-              className="mt-4 text-sm text-[var(--ink-soft)] underline underline-offset-2"
-            >
-              איפוס התקדמות
-            </button>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                onClick={resetProgress}
+                className="text-sm text-[var(--ink-soft)] underline underline-offset-2"
+              >
+                איפוס התקדמות
+              </button>
+              <button
+                onClick={goToRandomPage}
+                className="text-sm text-[var(--ink-soft)] underline underline-offset-2"
+              >
+                עמוד אקראי
+              </button>
+            </div>
           </div>
         </aside>
       </main>

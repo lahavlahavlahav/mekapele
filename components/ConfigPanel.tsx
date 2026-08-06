@@ -34,11 +34,15 @@ const PRECISION_OPTIONS: { label: string; mm: number }[] = [
 
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
 export default function ConfigPanel() {
-  const { config, setConfig, loadPattern, pattern, sourceImage, setView } = useStore();
+  const { config, setConfig, loadPattern, pattern, sourceImage, foldedPages, setView } = useStore();
   const { user, getToken } = useAuth();
   const hearts = useHearts();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // A heart already paid for whatever photo produced the current `pattern` -
+  // tweaking settings and re-generating with that SAME photo is free from
+  // here on; only swapping in a genuinely different photo charges again.
+  const [imageIsPaid, setImageIsPaid] = useState(!!pattern);
 
   // Restore the previously-uploaded image (and its preview) when returning to
   // this screen without a fresh upload - e.g. generate a pattern, then click
@@ -89,10 +93,20 @@ export default function ConfigPanel() {
   };
 
   const onFile = (f: File | null) => {
+    if (
+      f &&
+      imageIsPaid &&
+      !window.confirm(
+        "כבר שילמת לב על התבנית מהתמונה הנוכחית. החלפת התמונה תדרוש לב נוסף ביצירת התבנית הבאה. להמשיך?"
+      )
+    ) {
+      return;
+    }
     setError(null);
     setShowGate(false);
     setFile(f);
     setPreviewUrl(f ? URL.createObjectURL(f) : null);
+    setImageIsPaid(false);
   };
 
   function validate(): boolean {
@@ -121,6 +135,10 @@ export default function ConfigPanel() {
   // count/complexity/cost for the confirmation modal. Requires sign-in.
   // Nothing is charged yet — that happens server-side in onConfirmGenerate,
   // which recomputes the fold count authoritatively before billing hearts.
+  //
+  // Exception: if a heart was already paid for this exact photo (imageIsPaid),
+  // re-generating with new settings is free - skip the confirm modal and the
+  // billed API route entirely, and just recompute + load directly.
   const onGenerate = async () => {
     setError(null);
     setShowGate(false);
@@ -142,6 +160,13 @@ export default function ConfigPanel() {
         makeThumbnail(file, 1600, "image/jpeg", 0.88),
       ]);
       const localPattern = generateFoldingPattern(grid, config);
+
+      if (imageIsPaid) {
+        loadPattern(localPattern, thumb, sourceImg);
+        setView("tracker");
+        return;
+      }
+
       const foldCount = countFolds(localPattern);
       setConfirmState({
         file,
@@ -186,6 +211,7 @@ export default function ConfigPanel() {
         return;
       }
       loadPattern(json.pattern, confirmState.thumb, confirmState.sourceImg);
+      setImageIsPaid(true);
       setConfirmState(null);
       setView("tracker");
     } catch {
@@ -260,6 +286,12 @@ export default function ConfigPanel() {
             onChange={(e) => onFile(e.target.files?.[0] ?? null)}
           />
         </label>
+        {imageIsPaid && (
+          <p className="mt-3 text-sm" style={{ color: "var(--ink-soft)" }}>
+            🔒 כבר שילמת לב על התמונה הזו — אפשר לשנות את ההגדרות למטה ולעדכן את התבנית כמה פעמים שרוצים, בחינם.
+            רק בחירת תמונה חדשה תדרוש לב נוסף.
+          </p>
+        )}
       </div>
 
       {/* Core parameters */}
@@ -472,15 +504,22 @@ export default function ConfigPanel() {
         </p>
       )}
 
+      {imageIsPaid && foldedPages.length > 0 && (
+        <p className="mb-3 text-sm" style={{ color: "var(--coral-deep)" }}>
+          שימו לב: עדכון התבנית יאפס את סימוני ההתקדמות ({foldedPages.length} עמודים) שסימנתם עד כה במעקב.
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-3">
-        {/* Single action: generate the real pattern (requires sign-in). */}
+        {/* Generate: paid the first time (requires sign-in); free re-generation
+            with new settings once a heart was already spent on this photo. */}
         <button
           onClick={onGenerate}
           disabled={busy}
           className="flex-1 min-w-[10rem] py-3.5 rounded-[var(--radius)] font-semibold text-white text-lg disabled:opacity-60"
           style={{ background: "var(--ink)" }}
         >
-          {busy ? "מעבד…" : "צרו תבנית"}
+          {busy ? "מעבד…" : imageIsPaid ? "עדכנו תבנית (חינם)" : "צרו תבנית"}
         </button>
 
         <button

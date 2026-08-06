@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useStore } from "@/lib/store";
+import FoldMapChart from "./tracker/FoldMapChart";
 
-/** Mode 1 — Print-Ready Export: branded, cleanly formatted measurement table. */
+/** Mode 1 — Print-Ready Export: branded table, or a visual fold-map chart. */
 export default function PrintExport() {
   const { pattern, setView } = useStore();
+  const [layout, setLayout] = useState<"table" | "map">("table");
   if (!pattern) return null;
 
   const { config, pages } = pattern;
@@ -27,13 +30,39 @@ export default function PrintExport() {
         >
           → חזרה למעקב
         </button>
-        <button
-          onClick={() => window.print()}
-          className="px-4 py-2 rounded-lg font-semibold text-white"
-          style={{ background: "var(--coral)" }}
-        >
-          הדפסה / שמירה כ-PDF
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: "var(--line)" }}>
+            <button
+              onClick={() => setLayout("table")}
+              className="px-3 py-1.5 text-sm font-semibold"
+              style={
+                layout === "table"
+                  ? { background: "var(--ink)", color: "#fff" }
+                  : { background: "var(--paper)" }
+              }
+            >
+              טבלה
+            </button>
+            <button
+              onClick={() => setLayout("map")}
+              className="px-3 py-1.5 text-sm font-semibold"
+              style={
+                layout === "map"
+                  ? { background: "var(--ink)", color: "#fff" }
+                  : { background: "var(--paper)" }
+              }
+            >
+              מפת קיפולים
+            </button>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-lg font-semibold text-white"
+            style={{ background: "var(--coral)" }}
+          >
+            הדפסה / שמירה כ-PDF
+          </button>
+        </div>
       </div>
 
       {/* Branded header — embedded in the printed document */}
@@ -51,48 +80,52 @@ export default function PrintExport() {
         </div>
       </div>
 
-      <table className="print-table w-full text-sm tabular border-collapse">
-        <thead>
-          <tr>
-            {headers.map((h, i) => (
-              <th
-                key={i}
-                className="text-left px-3 py-2 border"
-                style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {pages.map((p) => (
-            <tr key={p.leaf}>
-              <td className="px-3 py-1.5 border font-semibold" style={{ borderColor: "var(--line)" }}>
-                {p.leaf}
-              </td>
-              <td className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
-                {p.page}
-              </td>
-              {p.isBlank ? (
-                <td
-                  className="px-3 py-1.5 border text-[var(--ink-soft)]"
-                  style={{ borderColor: "var(--line)" }}
-                  colSpan={headers.length - 2}
+      {layout === "table" ? (
+        <table className="print-table w-full text-sm tabular border-collapse">
+          <thead>
+            <tr>
+              {headers.map((h, i) => (
+                <th
+                  key={i}
+                  className="text-left px-3 py-2 border"
+                  style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
                 >
-                  — אין קיפול —
-                </td>
-              ) : (
-                Array.from({ length: headers.length - 2 }, (_, i) => (
-                  <td key={i} className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
-                    {p.marksCm[i] !== undefined ? p.marksCm[i].toFixed(1) : ""}
-                  </td>
-                ))
-              )}
+                  {h}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pages.map((p) => (
+              <tr key={p.leaf}>
+                <td className="px-3 py-1.5 border font-semibold" style={{ borderColor: "var(--line)" }}>
+                  {p.leaf}
+                </td>
+                <td className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
+                  {p.page}
+                </td>
+                {p.isBlank ? (
+                  <td
+                    className="px-3 py-1.5 border text-[var(--ink-soft)]"
+                    style={{ borderColor: "var(--line)" }}
+                    colSpan={headers.length - 2}
+                  >
+                    — אין קיפול —
+                  </td>
+                ) : (
+                  Array.from({ length: headers.length - 2 }, (_, i) => (
+                    <td key={i} className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
+                      {p.marksCm[i] !== undefined ? p.marksCm[i].toFixed(1) : ""}
+                    </td>
+                  ))
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <FoldMapChart pages={pages} pageHeightCm={config.pageHeightCm} />
+      )}
     </div>
   );
 }

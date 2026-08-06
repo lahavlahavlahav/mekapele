@@ -79,11 +79,18 @@ export default function WorkshopTracker() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => exportPatternPdf(pattern, "תבנית")}
+            onClick={() => exportPatternPdf(pattern, "תבנית", "table")}
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--line)" }}
           >
-            ייצוא PDF
+            ייצוא טבלה (PDF)
+          </button>
+          <button
+            onClick={() => exportPatternPdf(pattern, "תבנית", "map")}
+            className="text-sm px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: "var(--line)" }}
+          >
+            ייצוא מפת קיפולים (PDF)
           </button>
           <button
             onClick={() => setView("editGrid")}

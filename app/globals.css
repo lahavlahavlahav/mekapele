@@ -60,6 +60,8 @@ html, body {
   }
   .print-table thead { display: table-header-group; }
   tr { break-inside: avoid; }
+  .fold-map-page { break-after: page; }
+  .fold-map-page:last-child { break-after: auto; }
 }
 .print-only { display: none; }
 

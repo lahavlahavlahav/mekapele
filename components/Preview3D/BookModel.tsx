@@ -27,8 +27,8 @@ const ENDPAPER_GUTTER_FRACTION = 0.35;
 // White pages read as a clearly different material from the cover regardless
 // of whatever color the cover is set to - the two must never blend together.
 const PAGE_COLOR = "#ffffff";
-/** Default cover color (dark navy) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
-export const DEFAULT_COVER_COLOR = "#1d2433";
+/** Default cover color (warm beige) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
+export const DEFAULT_COVER_COLOR = "#c9a877";
 const STAND_COLOR = "#5c3a21";
 
 /**

@@ -24,10 +24,11 @@ const DEG2RAD = Math.PI / 180;
 /** How far the endpaper sits between the outer leaf and the cover: 0 = at the leaf edge, 1 = flush with the cover. */
 const ENDPAPER_GUTTER_FRACTION = 0.35;
 
-const PAGE_COLOR = "#efe4c8";
+// White pages read as a clearly different material from the cover regardless
+// of whatever color the cover is set to - the two must never blend together.
+const PAGE_COLOR = "#ffffff";
 /** Default cover color (dark navy) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
 export const DEFAULT_COVER_COLOR = "#1d2433";
-const ENDPAPER_COLOR = "#d8c19a";
 const STAND_COLOR = "#5c3a21";
 
 /**
@@ -168,15 +169,23 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
           through the gap where a run of blank leaves stays folded flat. */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[spineRadius, spineRadius, pageHeightCm, 16]} />
-        <meshStandardMaterial color={ENDPAPER_COLOR} roughness={0.5} metalness={0.1} />
+        <meshStandardMaterial
+          color={coverColor}
+          roughness={0.5}
+          metalness={0.1}
+          emissive={coverColor}
+          emissiveIntensity={0.15}
+        />
       </mesh>
 
       {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}
       <LeafFan geometries={foldedGeometries} angles={angles} pageHeightCm={pageHeightCm} color={PAGE_COLOR} />
 
-      {/* Endpapers hug the inner face of each cover for a more finished, realistic look. */}
-      <Endpaper geometry={endpaperGeometry} angle={endpaperAngleBack} pageHeightCm={pageHeightCm} color={ENDPAPER_COLOR} />
-      <Endpaper geometry={endpaperGeometry} angle={endpaperAngleFront} pageHeightCm={pageHeightCm} color={ENDPAPER_COLOR} />
+      {/* Endpapers hug the inner face of each cover - same color as the rest
+          of the cover, so there is exactly one cover color throughout, no
+          separate shade anywhere it could read as a mismatched seam. */}
+      <Endpaper geometry={endpaperGeometry} angle={endpaperAngleBack} pageHeightCm={pageHeightCm} color={coverColor} />
+      <Endpaper geometry={endpaperGeometry} angle={endpaperAngleFront} pageHeightCm={pageHeightCm} color={coverColor} />
 
       {/* Covers cap the fan on both ends. */}
       <BackCover geometry={coverGeometry} angle={coverAngleBack} pageHeightCm={pageHeightCm} color={coverColor} />

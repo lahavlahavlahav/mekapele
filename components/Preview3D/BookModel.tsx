@@ -22,13 +22,14 @@ interface BookModelProps {
 const LEAF_FRACTION = 1.35 / (1.35 + 0.12);
 const DEG2RAD = Math.PI / 180;
 /** How far the endpaper sits between the outer leaf and the cover: 0 = at the leaf edge, 1 = flush with the cover. */
-const ENDPAPER_GUTTER_FRACTION = 0.35;
+const ENDPAPER_GUTTER_FRACTION = 0.05;
 
-// White pages read as a clearly different material from the cover regardless
-// of whatever color the cover is set to - the two must never blend together.
-const PAGE_COLOR = "#ffffff";
-/** Default cover color (warm beige) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
-export const DEFAULT_COVER_COLOR = "#c9a877";
+// Warm cream-white pages read as a clearly different material from the cover
+// regardless of whatever color the cover is set to - the two must never blend
+// together, but pure white looked too stark/plasticky next to the paper grain.
+const PAGE_COLOR = "#f7f2e6";
+/** Default cover color (warm brown) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
+export const DEFAULT_COVER_COLOR = "#7a4a2a";
 const STAND_COLOR = "#5c3a21";
 
 /**
@@ -193,7 +194,9 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
   // shrink to ~0 as the book approaches fully closed (angle 0), where leaves
   // are nearly parallel and there is no real gap to fill - a fixed radius
   // stayed oversized at small angles and stuck out past the closed book.
-  const spineRadius = Math.max(0.015, fullDepth * 0.5 * Math.sin(coverHalfAngle));
+  // Kept slim (real book spines are narrow relative to page depth) - just
+  // enough to plug the wedge, not a thick drum.
+  const spineRadius = Math.max(0.01, fullDepth * 0.22 * Math.sin(coverHalfAngle));
 
   // Footprint of the fanned block on the table (X = sideways spread, Z = forward reach).
   // Floored so the stand doesn't visually vanish as the book approaches fully closed.
@@ -280,8 +283,11 @@ function BackCover({
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      {/* Unlit - see the spine's comment. */}
-      <meshBasicMaterial color={color} />
+      {/* Unlit - see the spine's comment. DoubleSide: viewed from behind the
+          book (outside the back cover), the front-facing side is pointed
+          away from the camera - without this the back face doesn't render
+          as this same flat color. */}
+      <meshBasicMaterial color={color} side={THREE.DoubleSide} />
     </mesh>
   );
 }
@@ -305,8 +311,8 @@ function CoverWithArt({
       {imageUrl ? (
         <CoverMaterial imageUrl={imageUrl} />
       ) : (
-        // Unlit - see the spine's comment.
-        <meshBasicMaterial color={color} />
+        // Unlit + DoubleSide - see BackCover's comment.
+        <meshBasicMaterial color={color} side={THREE.DoubleSide} />
       )}
     </mesh>
   );

@@ -67,19 +67,23 @@ function usePaperTexture(): THREE.CanvasTexture | null {
     if (!ctx) return null;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < 900; i++) {
+    for (let i = 0; i < 1100; i++) {
       const x = Math.random() * canvas.width;
       const y = Math.random() * canvas.height;
       const h = 5 + Math.random() * 22;
-      const shade = 225 + Math.floor(Math.random() * 20);
-      ctx.strokeStyle = `rgba(${shade}, ${shade - 3}, ${shade - 10}, ${0.12 + Math.random() * 0.22})`;
-      ctx.lineWidth = 0.5 + Math.random() * 0.7;
+      const shade = 195 + Math.floor(Math.random() * 35);
+      ctx.strokeStyle = `rgba(${shade}, ${shade - 4}, ${shade - 14}, ${0.25 + Math.random() * 0.35})`;
+      ctx.lineWidth = 0.5 + Math.random() * 0.8;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x, y + h);
       ctx.stroke();
     }
     const texture = new THREE.CanvasTexture(canvas);
+    // Canvas pixels are already sRGB - without this, three.js's color
+    // management (r152+) treats them as linear and washes the grain out to
+    // near-invisible.
+    texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(1, 6);
@@ -207,13 +211,10 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
           through the gap where a run of blank leaves stays folded flat. */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[spineRadius, spineRadius, pageHeightCm, 16]} />
-        <meshStandardMaterial
-          color={coverColor}
-          roughness={0.5}
-          metalness={0.1}
-          emissive={coverColor}
-          emissiveIntensity={0.15}
-        />
+        {/* Unlit on purpose: the whole cover must read as one flat, uniform
+            color regardless of the scene's (asymmetric) lighting - a lit
+            material always shades one side darker than the other. */}
+        <meshBasicMaterial color={coverColor} />
       </mesh>
 
       {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}
@@ -258,14 +259,9 @@ function Endpaper({
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      <meshStandardMaterial
-        color={color}
-        roughness={0.7}
-        metalness={0}
-        side={THREE.DoubleSide}
-        emissive={color}
-        emissiveIntensity={0.15}
-      />
+      {/* Unlit - see the spine's comment: this must stay the exact same flat
+          color as the covers no matter which side the light favors. */}
+      <meshBasicMaterial color={color} side={THREE.DoubleSide} />
     </mesh>
   );
 }
@@ -284,13 +280,8 @@ function BackCover({
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      <meshStandardMaterial
-        color={color}
-        roughness={0.5}
-        metalness={0.1}
-        emissive={color}
-        emissiveIntensity={0.15}
-      />
+      {/* Unlit - see the spine's comment. */}
+      <meshBasicMaterial color={color} />
     </mesh>
   );
 }
@@ -314,13 +305,8 @@ function CoverWithArt({
       {imageUrl ? (
         <CoverMaterial imageUrl={imageUrl} />
       ) : (
-        <meshStandardMaterial
-          color={color}
-          roughness={0.5}
-          metalness={0.1}
-          emissive={color}
-          emissiveIntensity={0.15}
-        />
+        // Unlit - see the spine's comment.
+        <meshBasicMaterial color={color} />
       )}
     </mesh>
   );

@@ -52,6 +52,41 @@ function useLeafAngles(leafCount: number, leafMaxAngle: number, direction: Readi
   }, [leafCount, leafMaxAngle, direction]);
 }
 
+/**
+ * Procedurally paints a small canvas with fine, irregular near-white vertical
+ * streaks - card-stock fiber grain - so leaf faces read as paper rather than
+ * flat plastic. Generated once (useMemo) and tiled down each leaf's height.
+ */
+function usePaperTexture(): THREE.CanvasTexture | null {
+  return useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < 900; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const h = 5 + Math.random() * 22;
+      const shade = 225 + Math.floor(Math.random() * 20);
+      ctx.strokeStyle = `rgba(${shade}, ${shade - 3}, ${shade - 10}, ${0.12 + Math.random() * 0.22})`;
+      ctx.lineWidth = 0.5 + Math.random() * 0.7;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + h);
+      ctx.stroke();
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 6);
+    return texture;
+  }, []);
+}
+
 function LeafFan({
   geometries,
   angles,
@@ -63,10 +98,11 @@ function LeafFan({
   pageHeightCm: number;
   color: string;
 }) {
+  const paperTexture = usePaperTexture();
   return (
     <>
       {geometries.map((geom, i) => (
-        <Leaf key={i} geometry={geom} angle={angles[i]} pageHeightCm={pageHeightCm} color={color} />
+        <Leaf key={i} geometry={geom} angle={angles[i]} pageHeightCm={pageHeightCm} color={color} texture={paperTexture} />
       ))}
     </>
   );
@@ -77,16 +113,18 @@ function Leaf({
   angle,
   pageHeightCm,
   color,
+  texture,
 }: {
   geometry: THREE.ExtrudeGeometry;
   angle: number;
   pageHeightCm: number;
   color: string;
+  texture: THREE.CanvasTexture | null;
 }) {
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      <meshStandardMaterial color={color} roughness={0.85} metalness={0} side={THREE.DoubleSide} />
+      <meshStandardMaterial color={color} map={texture} roughness={0.85} metalness={0} side={THREE.DoubleSide} />
     </mesh>
   );
 }

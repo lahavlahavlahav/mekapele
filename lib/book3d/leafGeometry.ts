@@ -20,13 +20,22 @@
 // =============================================================================
 
 import * as THREE from "three";
-import type { PageMeasurement } from "@/lib/types";
+import type { FoldingMode, PageMeasurement } from "@/lib/types";
 
 export interface LeafShapeParams {
   pageHeightCm: number;
   foldedDepth: number; // how far a folded-under (blank) region extends from the spine
   fullDepth: number; // how far a region within a fold-mark band extends (full page depth)
+  /** MMF gets a diagonal fold-crease bevel at each transition (see buildLeafShape); Cut & Fold keeps a sharp edge, since that one's genuinely cut. */
+  mode?: FoldingMode;
 }
+
+// Cosmetic width (cm) of the diagonal crease drawn at each MMF fold
+// transition - doesn't touch the actual mark position used for printing/
+// instructions, purely softens the 3D silhouette so it reads as a bent
+// paper crease instead of a machined right-angle notch (which is what a
+// Cut & Fold edge should actually look like, not what MMF should).
+const FOLD_BEVEL_CM = 0.3;
 
 /** [start, end] pairs in "distance from top of page, cm" order, start < end. */
 function pairUp(marksCm: number[]): [number, number][] {
@@ -46,7 +55,8 @@ export function buildLeafShape(
   page: PageMeasurement,
   params: LeafShapeParams
 ): THREE.Shape {
-  const { pageHeightCm, foldedDepth, fullDepth } = params;
+  const { pageHeightCm, foldedDepth, fullDepth, mode = "MMF" } = params;
+  const useBevel = mode === "MMF";
   const shape = new THREE.Shape();
 
   if (page.isBlank || page.marksCm.length === 0) {
@@ -72,11 +82,22 @@ export function buildLeafShape(
   for (const [bandLow, bandHigh] of bands) {
     if (bandHigh <= cursor) continue; // ignore degenerate/overlapping bands
     const low = Math.max(bandLow, cursor);
-    shape.lineTo(foldedDepth, low);
-    shape.lineTo(fullDepth, low);
-    shape.lineTo(fullDepth, bandHigh);
-    shape.lineTo(foldedDepth, bandHigh);
-    cursor = bandHigh;
+    if (low >= bandHigh) continue;
+
+    // A real MMF fold bends gradually, not through a machined right-angle
+    // notch - clamp the diagonal's width so it can never eat into this
+    // band's own height or the room left before/after neighboring bands
+    // (which would otherwise self-intersect the outline).
+    const bevelIn = useBevel ? Math.min(FOLD_BEVEL_CM, low - cursor, (bandHigh - low) / 2) : 0;
+    const bevelOut = useBevel
+      ? Math.min(FOLD_BEVEL_CM, (bandHigh - low) / 2, pageHeightCm - bandHigh)
+      : 0;
+
+    shape.lineTo(foldedDepth, low - bevelIn);
+    shape.lineTo(fullDepth, low + bevelIn);
+    shape.lineTo(fullDepth, bandHigh - bevelOut);
+    shape.lineTo(foldedDepth, bandHigh + bevelOut);
+    cursor = bandHigh + bevelOut;
   }
   shape.lineTo(foldedDepth, pageHeightCm);
   shape.lineTo(0, pageHeightCm);

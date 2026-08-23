@@ -64,7 +64,6 @@ export default function ConfigPanel() {
   const [saved, setSaved] = useState(false);
   const [heightUnit, setHeightUnit] = useState<HeightUnit>("cm");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [preview3D, setPreview3D] = useState<{ pattern: FoldingPattern; coverImageUrl: string | null } | null>(null);
   const [busy3D, setBusy3D] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -480,20 +479,6 @@ export default function ConfigPanel() {
         </div>
       )}
 
-      {/* Advanced (placeholder for future parameters) */}
-      <button
-        type="button"
-        onClick={() => setShowAdvanced((v) => !v)}
-        className="text-sm font-semibold mb-3"
-        style={{ color: "var(--coral-deep)" }}
-      >
-        מתקדם {showAdvanced ? "−" : "+"}
-      </button>
-      {showAdvanced && (
-        <div className="mb-6 rounded-[var(--radius)] p-4 border text-sm text-[var(--ink-soft)]" style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}>
-          אפשרויות מתקדמות נוספות יתווספו כאן בעתיד.
-        </div>
-      )}
 
       {error && (
         <p

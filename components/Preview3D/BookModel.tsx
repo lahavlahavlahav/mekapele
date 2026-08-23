@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 import { buildLeafShape, buildFlatLeafShape, orientLeaf } from "@/lib/book3d/leafGeometry";
@@ -92,6 +92,55 @@ function usePaperTexture(): THREE.CanvasTexture | null {
   }, []);
 }
 
+/**
+ * Composites the site's own logo (public/assets/mekapele-logo.png), centered,
+ * onto a solid coverColor background - a branded back cover, the way a real
+ * book stamps its publisher's mark on the back. Sized to the cover's own
+ * (depth x pageHeight) aspect so the logo doesn't stretch. Async (image load),
+ * so this starts out null and the caller should fall back to a plain color
+ * material until it resolves.
+ */
+function useCoverLogoTexture(coverColor: string, aspect: number): THREE.CanvasTexture | null {
+  const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !Number.isFinite(aspect) || aspect <= 0) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = Math.max(1, Math.round(512 * aspect));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = coverColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const logoAspect = img.width / img.height;
+      const maxW = canvas.width * 0.5;
+      const maxH = canvas.height * 0.3;
+      let w = maxW;
+      let h = w / logoAspect;
+      if (h > maxH) {
+        h = maxH;
+        w = h * logoAspect;
+      }
+      ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      setTexture(tex);
+    };
+    img.src = "/assets/mekapele-logo.png";
+    return () => {
+      cancelled = true;
+    };
+  }, [coverColor, aspect]);
+
+  return texture;
+}
+
 function LeafFan({
   geometries,
   angles,
@@ -158,10 +207,10 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
   const foldedGeometries = useMemo(
     () =>
       pages.map((page) => {
-        const shape = buildLeafShape(page, { pageHeightCm, foldedDepth, fullDepth });
+        const shape = buildLeafShape(page, { pageHeightCm, foldedDepth, fullDepth, mode: config.mode });
         return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
       }),
-    [pages, pageHeightCm, foldedDepth, fullDepth, thickness]
+    [pages, pageHeightCm, foldedDepth, fullDepth, thickness, config.mode]
   );
 
   const coverAngleBack = -coverHalfAngle;
@@ -207,6 +256,10 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
   const standDepth = fullDepth * 1.25;
   const standHeight = pageHeightCm * 0.05;
 
+  // Back cover's shape is buildFlatLeafShape(pageHeightCm, fullDepth) - match
+  // that aspect so the logo texture doesn't stretch on it.
+  const logoTexture = useCoverLogoTexture(coverColor, pageHeightCm / fullDepth);
+
   return (
     <group>
       {/* Spine core: sits exactly on the fan's shared axis, so it's always
@@ -229,8 +282,14 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
       <Endpaper geometry={endpaperGeometry} angle={endpaperAngleBack} pageHeightCm={pageHeightCm} color={coverColor} />
       <Endpaper geometry={endpaperGeometry} angle={endpaperAngleFront} pageHeightCm={pageHeightCm} color={coverColor} />
 
-      {/* Covers cap the fan on both ends. */}
-      <BackCover geometry={coverGeometry} angle={coverAngleBack} pageHeightCm={pageHeightCm} color={coverColor} />
+      {/* Covers cap the fan on both ends. Back cover carries the brand logo. */}
+      <BackCover
+        geometry={coverGeometry}
+        angle={coverAngleBack}
+        pageHeightCm={pageHeightCm}
+        color={coverColor}
+        logoTexture={logoTexture}
+      />
       <CoverWithArt
         geometry={coverGeometry}
         angle={coverAngleFront}
@@ -274,11 +333,13 @@ function BackCover({
   angle,
   pageHeightCm,
   color,
+  logoTexture,
 }: {
   geometry: THREE.ExtrudeGeometry;
   angle: number;
   pageHeightCm: number;
   color: string;
+  logoTexture: THREE.CanvasTexture | null;
 }) {
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
@@ -286,8 +347,14 @@ function BackCover({
       {/* Unlit - see the spine's comment. DoubleSide: viewed from behind the
           book (outside the back cover), the front-facing side is pointed
           away from the camera - without this the back face doesn't render
-          as this same flat color. */}
-      <meshBasicMaterial color={color} side={THREE.DoubleSide} />
+          as this same flat color. While the logo texture is still loading,
+          falls back to the plain cover color (the texture's own canvas
+          already paints that same color as its background once ready). */}
+      <meshBasicMaterial
+        color={logoTexture ? "#ffffff" : color}
+        map={logoTexture}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   );
 }

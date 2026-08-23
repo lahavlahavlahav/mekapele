@@ -93,13 +93,6 @@ export default function WorkshopTracker() {
             ייצוא מפת קיפולים (PDF)
           </button>
           <button
-            onClick={() => setView("editGrid")}
-            className="text-sm px-3 py-1.5 rounded-lg border"
-            style={{ borderColor: "var(--line)" }}
-          >
-            עריכת סימונים
-          </button>
-          <button
             onClick={() => setView("print")}
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--line)" }}

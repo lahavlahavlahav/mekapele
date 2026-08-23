@@ -47,11 +47,11 @@ function heightHasMark(marksCm: number[], cm: number): boolean {
  * Slice positions honor reading direction so the fill grows from the
  * correct edge (left for LTR, right for RTL).
  *
- * Clicking a colored (marked) height jumps the tracker straight to that leaf
- * (its measurements appear in FocusCard) and shows a brief floating label
- * with the exact height in cm. Clicking a blank height does neither - the
- * picture and the measurements must always agree, so a spot with nothing
- * drawn there can never report a mark.
+ * Clicking anywhere - marked or blank - jumps the tracker straight to that
+ * leaf (its measurements appear in FocusCard), so browsing to a page on
+ * purpose is always one click. The floating label still tells the two
+ * apart: exact height in cm on a marked spot, "no fold here" on a blank one
+ * - the picture and the measurements must always agree on that.
  */
 export default function ImagePreview({
   thumbnail,
@@ -114,8 +114,8 @@ export default function ImagePreview({
 
         // Leaf-boundary divider — every leaf gets its own line, always on.
         ctx.globalAlpha = 1;
-        ctx.strokeStyle = "rgba(29,36,51,0.25)";
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(29,36,51,0.45)";
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(startX, 0);
         ctx.lineTo(startX, imgH);
@@ -156,9 +156,10 @@ export default function ImagePreview({
     const cm = pixelYToCm(nativeY, canvas.height, verticalSpacingCm, pageHeightCm, precisionMm);
     const onMark = heightHasMark(pages[page - 1]?.marksCm ?? [], cm);
     setClickInfo({ xPct, yPct, leaf: page, cm, onMark });
-    // A blank height means there's nothing here to fold - don't jump the
-    // tracker to it, matching the picture exactly (colored = has a mark).
-    if (onMark) onSelectPage(page);
+    // Always jump - browsing to a blank leaf on purpose (e.g. to confirm
+    // there's nothing to fold there) should be just as easy as jumping to a
+    // marked one. Only the floating label's reading depends on onMark.
+    onSelectPage(page);
   };
 
   return (

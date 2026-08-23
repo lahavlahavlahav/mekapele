@@ -24,12 +24,11 @@ const DEG2RAD = Math.PI / 180;
 /** How far the endpaper sits between the outer leaf and the cover: 0 = at the leaf edge, 1 = flush with the cover. */
 const ENDPAPER_GUTTER_FRACTION = 0.05;
 
-// Warm cream-white pages read as a clearly different material from the cover
-// regardless of whatever color the cover is set to - the two must never blend
-// together, but pure white looked too stark/plasticky next to the paper grain.
-const PAGE_COLOR = "#f7f2e6";
-/** Default cover color (warm brown) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
-export const DEFAULT_COVER_COLOR = "#7a4a2a";
+// Pure white pages read as a clearly different material from the cover
+// regardless of whatever color the cover is set to - the two must never blend together.
+const PAGE_COLOR = "#ffffff";
+/** Default cover color (neutral gray) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
+export const DEFAULT_COVER_COLOR = "#8a8a8a";
 const STAND_COLOR = "#5c3a21";
 
 /**

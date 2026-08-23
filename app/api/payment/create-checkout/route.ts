@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth/verifyAuth";
 import { hit } from "@/lib/security/rateLimit";
 import { corsHeaders, isOriginAllowed } from "@/lib/security/cors";
-import { getHeartPackage } from "@/lib/pricing";
+import { applyDiscount, getDiscountCode, getHeartPackage } from "@/lib/pricing";
 import { createPaymentLink } from "@/lib/payment/make";
 
 export const runtime = "nodejs";
@@ -51,12 +51,14 @@ export async function POST(req: NextRequest) {
   let fullName: string;
   let phone: string;
   let email: string;
+  let couponCode: string;
   try {
     const body = await req.json();
     packageId = String(body.packageId ?? "");
     fullName = String(body.fullName ?? "").trim();
     phone = String(body.phone ?? "").trim();
     email = String(body.email ?? "").trim().toLowerCase();
+    couponCode = String(body.couponCode ?? "").trim();
   } catch {
     return NextResponse.json(
       { error: "Malformed request." },
@@ -100,10 +102,18 @@ export async function POST(req: NextRequest) {
 
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN || origin || "";
 
+  // The client may show a discounted price preview, but the amount actually
+  // charged always comes from re-validating the code here, never from
+  // anything the client claims the price already is.
+  const discount = getDiscountCode(couponCode);
+  const sum = applyDiscount(pkg.priceIls, discount);
+
   try {
     const { paymentUrl } = await createPaymentLink({
-      sum: pkg.priceIls,
-      description: `${pkg.label} — Mekapele`,
+      sum,
+      description: discount
+        ? `${pkg.label} — Mekapele (${discount.code} -${discount.percentOff}%)`
+        : `${pkg.label} — Mekapele`,
       successUrl: `${siteOrigin}/?purchase=success`,
       cancelUrl: `${siteOrigin}/?purchase=cancelled`,
       email: buyerEmail,

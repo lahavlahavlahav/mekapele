@@ -144,27 +144,6 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
           </span>
         </label>
 
-        <label className="block mb-4 text-sm">
-          <span className="font-semibold block mb-1.5">קוד קופון (אופציונלי)</span>
-          <input
-            type="text"
-            placeholder="למשל NEW10"
-            value={couponCode}
-            onChange={(e) => setCouponCode(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular"
-            style={{ borderColor: "var(--line)" }}
-            dir="ltr"
-          />
-          {couponCode.trim() && (
-            <span
-              className="block mt-1 text-xs font-semibold"
-              style={{ color: discount ? "var(--sage)" : "var(--coral-deep)" }}
-            >
-              {discount ? `קוד ${discount.code} הופעל — ${discount.percentOff}% הנחה` : "קוד לא תקין"}
-            </span>
-          )}
-        </label>
-
         <div className="space-y-3 mb-2">
           {HEART_PACKAGES.map((pkg) => {
             const discountedPrice = applyDiscount(pkg.priceIls, discount);
@@ -214,6 +193,27 @@ export default function PurchaseModal({ onClose }: { onClose: () => void }) {
             );
           })}
         </div>
+
+        <label className="block mb-4 text-sm">
+          <span className="font-semibold block mb-1.5">קוד קופון</span>
+          <input
+            type="text"
+            placeholder="NEW10"
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular"
+            style={{ borderColor: "var(--line)" }}
+            dir="ltr"
+          />
+          {couponCode.trim() && (
+            <span
+              className="block mt-1 text-xs font-semibold"
+              style={{ color: discount ? "var(--sage)" : "var(--coral-deep)" }}
+            >
+              {discount ? `קוד ${discount.code} הופעל — ${discount.percentOff}% הנחה` : "קוד לא תקין"}
+            </span>
+          )}
+        </label>
 
         {error && (
           <p

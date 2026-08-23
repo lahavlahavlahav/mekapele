@@ -327,7 +327,7 @@ export function generateFoldingPattern(
     Math.round((config.minTabSizeMm / 10) * pixelsPerCm)
   );
 
-  const pages: PageMeasurement[] =
+  let pages: PageMeasurement[] =
     config.mode === "MMF"
       ? generateMMF(grid, config, leafCount, first, threshold, cropStartX, cropWidth)
       : generateCutAndFold(
@@ -341,8 +341,22 @@ export function generateFoldingPattern(
           cropWidth
         );
 
+  // cropSides tightens the pixel columns each leaf samples from, but content
+  // that isn't a perfect rectangle (almost none is) can still leave a run of
+  // genuinely blank leaves at either end - e.g. a letter's ascender starts a
+  // few leaves in from the tightened bounding box's own edge. Cropping should
+  // mean "start/end exactly where the content does," so drop those too.
+  let effectiveConfig = config;
+  if (config.cropSides) {
+    const trimmed = trimBlankEdges(pages, first);
+    pages = trimmed.pages;
+    if (trimmed.firstPage !== first || trimmed.lastPage !== last) {
+      effectiveConfig = { ...config, firstPage: trimmed.firstPage, lastPage: trimmed.lastPage };
+    }
+  }
+
   return {
-    config,
+    config: effectiveConfig,
     pages,
     imageWidth: grid.width,
     imageHeight: grid.height,
@@ -356,6 +370,30 @@ export function generateFoldingPattern(
 function leafToPageNumber(leafIndex: number, firstPage: number): number {
   // Consecutive leaves advance the physical page by 2 (front/back of a sheet).
   return firstPage + leafIndex * 2;
+}
+
+/**
+ * Drop leading/trailing all-blank leaves and renumber what's left so the
+ * printed range starts and ends exactly on real content. Always keeps at
+ * least one leaf, even for a fully blank image.
+ */
+function trimBlankEdges(
+  pages: PageMeasurement[],
+  firstPage: number
+): { pages: PageMeasurement[]; firstPage: number; lastPage: number } {
+  let start = 0;
+  while (start < pages.length - 1 && pages[start].isBlank) start++;
+  let end = pages.length - 1;
+  while (end > start && pages[end].isBlank) end--;
+
+  const newFirst = leafToPageNumber(start, firstPage);
+  const trimmed = pages.slice(start, end + 1).map((p, i) => ({
+    ...p,
+    leaf: i + 1,
+    page: leafToPageNumber(i, newFirst),
+  }));
+  const newLast = trimmed.length > 0 ? trimmed[trimmed.length - 1].page : newFirst;
+  return { pages: trimmed, firstPage: newFirst, lastPage: newLast };
 }
 
 /**

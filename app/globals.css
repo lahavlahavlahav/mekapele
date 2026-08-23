@@ -2,20 +2,24 @@
 
 /* =============================================================================
    LILOU BOOKS — design tokens
-   Identity: a bookbinder's bench. Warm paper, deep ink, one coral thread.
+   High-contrast by default site-wide (same values the accessibility widget's
+   own "high contrast" toggle already used) - clearer and more accessible.
    ========================================================================== */
 :root {
-  --paper: #f6f1e7;
-  --paper-2: #efe7d6;
-  --ink: #1d2433;
-  --ink-soft: #4a5468;
-  --line: #d9cdb6;
-  --coral: #e2614a;
-  --coral-deep: #c64a35;
+  --paper: #ffffff;
+  --paper-2: #ffffff;
+  --ink: #000000;
+  --ink-soft: #000000;
+  --line: #000000;
+  --coral: #b00020;
+  --coral-deep: #7a0016;
   --sage: #6f8f72;
   --gold: #c79a3a;
   --radius: 14px;
   --shadow: 0 1px 2px rgba(29, 36, 51, 0.06), 0 8px 24px rgba(29, 36, 51, 0.08);
+}
+* {
+  border-color: #000 !important;
 }
 
 html, body {

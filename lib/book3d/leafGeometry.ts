@@ -37,6 +37,11 @@ export interface LeafShapeParams {
 // Cut & Fold edge should actually look like, not what MMF should).
 const FOLD_BEVEL_CM = 0.3;
 
+// How far (cm) the outer tip of an MMF band bulges past fullDepth at its
+// midpoint - without this the tip is a flat straight line, which reads as an
+// open/cut edge rather than paper that's folded over.
+const FOLD_TIP_BULGE_CM = 0.25;
+
 /** [start, end] pairs in "distance from top of page, cm" order, start < end. */
 function pairUp(marksCm: number[]): [number, number][] {
   const pairs: [number, number][] = [];
@@ -95,7 +100,15 @@ export function buildLeafShape(
 
     shape.lineTo(foldedDepth, low - bevelIn);
     shape.lineTo(fullDepth, low + bevelIn);
-    shape.lineTo(fullDepth, bandHigh - bevelOut);
+    if (useBevel) {
+      // Round the tip itself into a gentle outward bulge instead of a flat
+      // straight run - a real folded-over edge is never perfectly flat.
+      const tipLow = low + bevelIn;
+      const tipHigh = bandHigh - bevelOut;
+      shape.quadraticCurveTo(fullDepth + FOLD_TIP_BULGE_CM, (tipLow + tipHigh) / 2, fullDepth, tipHigh);
+    } else {
+      shape.lineTo(fullDepth, bandHigh - bevelOut);
+    }
     shape.lineTo(foldedDepth, bandHigh + bevelOut);
     cursor = bandHigh + bevelOut;
   }

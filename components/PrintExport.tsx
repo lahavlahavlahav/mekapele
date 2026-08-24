@@ -81,48 +81,57 @@ export default function PrintExport() {
       </div>
 
       {layout === "table" ? (
-        <table className="print-table w-full text-sm tabular border-collapse">
-          <thead>
-            <tr>
-              {headers.map((h, i) => (
-                <th
-                  key={i}
-                  className="text-left px-3 py-2 border"
-                  style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pages.map((p) => (
-              <tr key={p.leaf}>
-                <td className="px-3 py-1.5 border font-semibold" style={{ borderColor: "var(--line)" }}>
-                  {p.leaf}
-                </td>
-                <td className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
-                  {p.page}
-                </td>
-                {p.isBlank ? (
-                  <td
-                    className="px-3 py-1.5 border text-[var(--ink-soft)]"
-                    style={{ borderColor: "var(--line)" }}
-                    colSpan={headers.length - 2}
+        // Cut & Fold can put a couple dozen marks on one busy leaf, each its
+        // own column. `w-full` used to force that many columns into the
+        // container width, squeezing each one until autotable-style text
+        // wrapped mid-number. `overflow-x-auto` + `nowrap` let the table
+        // grow as wide as it needs instead - every column stays wide enough
+        // for a whole number on one line, and it simply scrolls (or, when
+        // printed, shrinks to fit the page) rather than wrapping.
+        <div className="overflow-x-auto">
+          <table className="print-table text-sm tabular border-collapse" style={{ whiteSpace: "nowrap" }}>
+            <thead>
+              <tr>
+                {headers.map((h, i) => (
+                  <th
+                    key={i}
+                    className="text-center px-3 py-2 border"
+                    style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
                   >
-                    — אין קיפול —
-                  </td>
-                ) : (
-                  Array.from({ length: headers.length - 2 }, (_, i) => (
-                    <td key={i} className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
-                      {p.marksCm[i] !== undefined ? p.marksCm[i].toFixed(1) : ""}
-                    </td>
-                  ))
-                )}
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {pages.map((p) => (
+                <tr key={p.leaf}>
+                  <td className="px-3 py-1.5 border font-semibold" style={{ borderColor: "var(--line)" }}>
+                    {p.leaf}
+                  </td>
+                  <td className="px-3 py-1.5 border" style={{ borderColor: "var(--line)" }}>
+                    {p.page}
+                  </td>
+                  {p.isBlank ? (
+                    <td
+                      className="px-3 py-1.5 border text-center text-[var(--ink-soft)]"
+                      style={{ borderColor: "var(--line)" }}
+                      colSpan={headers.length - 2}
+                    >
+                      — אין קיפול —
+                    </td>
+                  ) : (
+                    Array.from({ length: headers.length - 2 }, (_, i) => (
+                      <td key={i} className="px-3 py-1.5 border text-center" style={{ borderColor: "var(--line)" }}>
+                        {p.marksCm[i] !== undefined ? p.marksCm[i].toFixed(1) : ""}
+                      </td>
+                    ))
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <FoldMapChart pages={pages} pageHeightCm={config.pageHeightCm} />
       )}

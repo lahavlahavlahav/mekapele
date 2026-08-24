@@ -73,7 +73,26 @@ export async function exportPatternPdf(
   layout: "table" | "map" = "table"
 ): Promise<void> {
   const { config, pages } = pattern;
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+
+  // Cut & Fold can put a couple dozen mark pairs on one busy leaf, each its
+  // own M1/M2/M3... column - the number of columns has to be known before
+  // the doc is constructed so we can pick a page big enough that every
+  // column stays wide enough for a whole number on one line.
+  const maxMarks = pages.reduce((m, p) => Math.max(m, p.marksCm.length), 0);
+  const numDataCols = config.mode === "MMF" ? 3 : 1 + maxMarks;
+
+  let format: "a4" | "a3" = "a4";
+  let orientation: "portrait" | "landscape" = "portrait";
+  if (layout === "table") {
+    if (numDataCols > 22) {
+      format = "a3";
+      orientation = "landscape";
+    } else if (numDataCols > 8) {
+      orientation = "landscape";
+    }
+  }
+
+  const doc = new jsPDF({ unit: "mm", format, orientation });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
@@ -103,8 +122,6 @@ export async function exportPatternPdf(
   if (layout === "map") {
     drawFoldMap(doc, pages, config.pageHeightCm, pageW, pageH, drawHeader);
   } else {
-    // Build rows. For MMF: Page | Top | Bottom. Cut&Fold: Page | marks...
-    const maxMarks = pages.reduce((m, p) => Math.max(m, p.marksCm.length), 0);
     const head =
       config.mode === "MMF"
         ? [["Page", "Top (cm)", "Bottom (cm)"]]
@@ -112,7 +129,7 @@ export async function exportPatternPdf(
 
     const body = pages.map((p) => {
       if (p.isBlank) {
-        return [String(p.page), "—", ...(config.mode === "MMF" ? ["—"] : [])];
+        return [String(p.page), ...Array(numDataCols - 1).fill("—")];
       }
       if (config.mode === "MMF") {
         return [
@@ -129,12 +146,22 @@ export async function exportPatternPdf(
       ];
     });
 
+    // Every column must stay wide enough for the widest number ("40.0", 4
+    // chars) plus padding on both sides, or autotable wraps it mid-digit.
+    // Solving colWidth = charW*chars + 2*pad for fontSize (Helvetica's
+    // average digit width is ~0.196mm per pt) gives the size that just
+    // fits - picking the larger page format above keeps this from having
+    // to shrink below a legible size even at 30+ columns.
+    const usableWidth = pageW - 28;
+    const colWidth = usableWidth / numDataCols;
+    const fontSize = Math.max(5, Math.min(9, Math.floor((colWidth - 2) / 0.98)));
+
     autoTable(doc, {
       head,
       body,
       startY: 30,
       margin: { top: 28, left: 14, right: 14 },
-      styles: { fontSize: 9, cellPadding: 1.5 },
+      styles: { fontSize, cellPadding: fontSize < 9 ? 0.8 : 1.5, halign: "center" },
       headStyles: { fillColor: [29, 36, 51], textColor: 255 },
       alternateRowStyles: { fillColor: [246, 241, 231] },
       didDrawPage: drawHeader,

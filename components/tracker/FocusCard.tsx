@@ -4,7 +4,8 @@ import type { FoldingMode, PageMeasurement } from "@/lib/types";
 
 interface FocusCardProps {
   measurement: PageMeasurement;
-  totalLeaves: number;
+  /** The book's actual last physical page number (config.lastPage) - `measurement.page` is also a physical page number, so the "X / Y" ratio must use the same unit, not the leaf count. */
+  lastPage: number;
   mode: FoldingMode;
   isFolded: boolean;
   onToggleFold: () => void;
@@ -16,7 +17,7 @@ interface FocusCardProps {
  */
 export default function FocusCard({
   measurement,
-  totalLeaves,
+  lastPage,
   mode,
   isFolded,
   onToggleFold,
@@ -57,7 +58,7 @@ export default function FocusCard({
           {page}
         </span>
         <span className="text-lg text-[rgba(246,241,231,0.55)] tabular">
-          / {totalLeaves}
+          / {lastPage}
         </span>
       </div>
 

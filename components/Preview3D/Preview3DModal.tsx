@@ -50,11 +50,12 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
         <Canvas
           shadows
           dpr={[1, 2]}
-          // Tighter than before (~0.77x radius vs. ~1.7x) - the fanned page
-          // relief is the actual subject and should dominate the frame by
-          // default; the flat covers filling most of it was the real gap
-          // versus the reference render, not the geometry underneath.
-          camera={{ position: [radius * 0.07, radius * 0.11, radius * 0.77], fov: 40 }}
+          // 0.77x radius (a previous tightening) opened right on top of the
+          // book, confusing on first load since the whole object didn't fit
+          // without the user manually zooming out. ~1.3x is a middle ground:
+          // close enough that the page-fan still reads as the subject, but
+          // the whole book (covers + base) is visible by default.
+          camera={{ position: [radius * 0.12, radius * 0.19, radius * 1.3], fov: 40 }}
         >
           <color attach="background" args={["#2a3142"]} />
           <ambientLight intensity={0.55} />

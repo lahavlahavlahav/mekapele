@@ -137,7 +137,9 @@ export default function WorkshopTracker() {
         <aside className="space-y-5">
           <FocusCard
             measurement={measurement}
-            totalLeaves={totalLeaves}
+            // Math.max, not just config.lastPage directly - the field is
+            // user-typed and isn't guaranteed to be the larger of the two.
+            lastPage={Math.max(pattern.config.firstPage, pattern.config.lastPage)}
             mode={pattern.config.mode}
             isFolded={isFolded}
             onToggleFold={isFolded ? unmarkCurrentFolded : markCurrentFolded}

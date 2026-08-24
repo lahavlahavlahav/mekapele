@@ -27,7 +27,7 @@ export default function ProgressBar({ folded, total }: ProgressBarProps) {
         aria-valuenow={pct}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`${folded} מתוך ${total} עמודים קופלו`}
+        aria-label={`${folded} מתוך ${total} עלים קופלו`}
       >
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
@@ -43,11 +43,11 @@ export default function ProgressBar({ folded, total }: ProgressBarProps) {
       <p className="mt-2 text-sm text-[var(--ink-soft)] tabular">
         {done ? (
           <span className="text-[var(--sage)] font-semibold">
-            הסתיים — כל העמודים קופלו. 🎉
+            הסתיים — כל העלים קופלו. 🎉
           </span>
         ) : (
           <>
-            {folded} מתוך {total} עמודים קופלו
+            {folded} מתוך {total} עלים קופלו
           </>
         )}
       </p>

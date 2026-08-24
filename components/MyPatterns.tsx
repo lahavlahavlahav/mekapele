@@ -33,8 +33,12 @@ export default function MyPatterns() {
     setError(null);
     try {
       setItems(await listPatterns(user.uid));
-    } catch {
-      setError("לא ניתן לטעון את התבניות השמורות.");
+    } catch (e) {
+      // Surface the real Firebase error code (e.g. "permission-denied",
+      // "unavailable") instead of a generic message - without it there's no
+      // way to tell a rules/config problem from a network hiccup.
+      const code = e instanceof Error && "code" in e ? String((e as { code: unknown }).code) : null;
+      setError(code ? `לא ניתן לטעון את התבניות השמורות (${code}).` : "לא ניתן לטעון את התבניות השמורות.");
     } finally {
       setLoading(false);
     }

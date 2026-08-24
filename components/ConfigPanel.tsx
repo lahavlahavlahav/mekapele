@@ -84,8 +84,12 @@ export default function ConfigPanel() {
         prompt("שם לתבנית:", "תבנית קיפול") || "תבנית קיפול";
       await savePattern(user.uid, name, pattern);
       setSaved(true);
-    } catch {
-      setError("השמירה נכשלה. נסו שוב.");
+    } catch (e) {
+      // Surface the real Firebase error code (e.g. "permission-denied",
+      // "unavailable") instead of a generic message - without it there's no
+      // way to tell a rules/config problem from a network hiccup.
+      const code = e instanceof Error && "code" in e ? String((e as { code: unknown }).code) : null;
+      setError(code ? `השמירה נכשלה (${code}). נסו שוב.` : "השמירה נכשלה. נסו שוב.");
     } finally {
       setSaving(false);
     }

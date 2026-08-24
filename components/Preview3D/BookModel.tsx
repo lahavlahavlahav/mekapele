@@ -195,7 +195,11 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
   const leafCount = pages.length;
   const pageHeightCm = config.pageHeightCm;
   const fullDepth = pageHeightCm * 0.62;
-  const foldedDepth = fullDepth * 0.16;
+  // Was 0.16: folded-flat sections receded almost all the way to the spine,
+  // so most of a page's height (everywhere it isn't actively marked) nearly
+  // vanished into the spine core - the whole page needs to stay visually
+  // present, with the marked band still reading as a clear further bulge.
+  const foldedDepth = fullDepth * 0.34;
   const thickness = Math.max(0.03, (pageHeightCm * 0.4) / leafCount);
 
   const openAngleRad = THREE.MathUtils.clamp(openAngleDeg, 0, 180) * DEG2RAD;

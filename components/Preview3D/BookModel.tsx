@@ -27,8 +27,8 @@ const ENDPAPER_GUTTER_FRACTION = 0.05;
 // Pure white pages read as a clearly different material from the cover
 // regardless of whatever color the cover is set to - the two must never blend together.
 const PAGE_COLOR = "#ffffff";
-/** Default cover color (blue) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. Must read as clearly darker/more saturated than the white pages, not a near-white that blends into them. */
-export const DEFAULT_COVER_COLOR = "#2b82b8";
+/** Default cover color (gray, both cover panels) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. Must read as clearly darker than the white pages, not a near-white that blends into them. */
+export const DEFAULT_COVER_COLOR = "#808080";
 /** The base plinth is its own distinct wood-brown, not tied to the cover color. */
 const STAND_COLOR = "#5c3317";
 

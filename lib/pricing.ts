@@ -45,6 +45,11 @@ export interface DiscountCode {
 
 export const DISCOUNT_CODES: Record<string, DiscountCode> = {
   NEW10: { code: "NEW10", percentOff: 10 },
+  // Internal QA only - 95% off brings the cheapest package (id "1", ₪19) down
+  // to exactly ₪1 (Math.round(19 * 0.05) = 1), for testing the real Grow
+  // checkout + webhook end-to-end without a meaningful charge. Not meant for
+  // customer use; remove once payment testing is done.
+  TEST1: { code: "TEST1", percentOff: 95 },
 };
 
 export function getDiscountCode(input: string | undefined | null): DiscountCode | null {

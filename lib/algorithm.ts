@@ -327,9 +327,12 @@ export function generateFoldingPattern(
     Math.round((config.minTabSizeMm / 10) * pixelsPerCm)
   );
 
+  const mmfLines = config.mmfLines ?? 1;
   let pages: PageMeasurement[] =
     config.mode === "MMF"
-      ? generateMMF(grid, config, leafCount, first, threshold, cropStartX, cropWidth)
+      ? mmfLines > 1
+        ? generateMultilineMMF(grid, config, leafCount, first, threshold, cropStartX, cropWidth, mmfLines)
+        : generateMMF(grid, config, leafCount, first, threshold, cropStartX, cropWidth)
       : generateCutAndFold(
           grid,
           config,
@@ -436,6 +439,63 @@ function generateMMF(
         pixelYToCm(chosen.topY, grid.height, config.verticalSpacingCm, config.pageHeightCm, config.precisionMm),
         pixelYToCm(chosen.bottomY, grid.height, config.verticalSpacingCm, config.pageHeightCm, config.precisionMm),
       ];
+    }
+
+    pages.push({
+      leaf: i + 1,
+      page: leafToPageNumber(i, firstPage),
+      marksCm,
+      isBlank: marksCm.length === 0,
+    });
+  }
+
+  return pages;
+}
+
+/**
+ * Multiline MMF: like generateMMF, but the column is split into `lines`
+ * equal horizontal bands (stacked top-to-bottom) BEFORE segment detection,
+ * and each band independently contributes its own [top, bottom] pair. This
+ * lets 2-3 separate picture elements that would otherwise only ever
+ * alternate across consecutive leaves (classic MMF's one-segment-per-leaf
+ * rule) show up on the SAME leaf at once, each in its own band. A band with
+ * no black pixels simply contributes no pair for that leaf, same as a fully
+ * blank leaf does in single-line MMF.
+ */
+function generateMultilineMMF(
+  grid: PixelGrid,
+  config: BookConfig,
+  leafCount: number,
+  firstPage: number,
+  threshold: number,
+  cropStartX: number,
+  cropWidth: number,
+  lines: number
+): PageMeasurement[] {
+  const order = orderColumnsByDirection(leafCount, config.direction);
+  const pages: PageMeasurement[] = [];
+  const bandHeight = grid.height / lines;
+
+  for (let i = 0; i < leafCount; i++) {
+    const col = order[i];
+    const { startX, endX } = sampleColumnBounds(cropWidth, leafCount, col, cropStartX);
+    const column = collapseColumn(grid, startX, endX);
+
+    const marksCm: number[] = [];
+    for (let band = 0; band < lines; band++) {
+      const bandStartY = Math.floor(band * bandHeight);
+      const bandEndY = band === lines - 1 ? grid.height : Math.floor((band + 1) * bandHeight);
+      if (bandEndY <= bandStartY) continue;
+
+      const slice = column.subarray(bandStartY, bandEndY);
+      const segments = findSegments(slice, threshold);
+      if (segments.length === 0) continue;
+
+      const chosen = segments[i % segments.length];
+      marksCm.push(
+        pixelYToCm(bandStartY + chosen.topY, grid.height, config.verticalSpacingCm, config.pageHeightCm, config.precisionMm),
+        pixelYToCm(bandStartY + chosen.bottomY, grid.height, config.verticalSpacingCm, config.pageHeightCm, config.precisionMm)
+      );
     }
 
     pages.push({

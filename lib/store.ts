@@ -18,6 +18,7 @@ export const DEFAULT_CONFIG: BookConfig = {
   pageHeightCm: 21.0,
   verticalSpacingCm: 16.0,
   mode: "MMF",
+  mmfLines: 1,
   minTabSizeMm: 1.0,
   direction: "RTL",
   cropSides: true,

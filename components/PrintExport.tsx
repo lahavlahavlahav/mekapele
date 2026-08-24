@@ -11,13 +11,21 @@ export default function PrintExport() {
   if (!pattern) return null;
 
   const { config, pages } = pattern;
+  // Single-line MMF always carries exactly one [top, bottom] pair per leaf,
+  // so it keeps the fixed Top/Bottom columns. Multiline MMF (2-3 independent
+  // fold bands per leaf) needs one "line" labeled pair of columns per band
+  // instead, the same variable-column-count idea Cut & Fold already uses.
+  const isSingleLineMMF = config.mode === "MMF" && (config.mmfLines ?? 1) <= 1;
   const maxMarks = pages.reduce((m, p) => Math.max(m, p.marksCm.length), 0);
-  const headers =
-    config.mode === "MMF"
-      ? ["עלה", "עמוד", "עליון (ס״מ)", "תחתון (ס״מ)"]
-      : ["עלה", "עמוד", ...Array.from({ length: maxMarks }, (_, i) =>
-          i % 2 === 0 ? `גזירה ${i / 2 + 1} מ-` : `עד`
-        )];
+  const headers = isSingleLineMMF
+    ? ["עלה", "עמוד", "עליון (ס״מ)", "תחתון (ס״מ)"]
+    : config.mode === "MMF"
+    ? ["עלה", "עמוד", ...Array.from({ length: maxMarks }, (_, i) =>
+        i % 2 === 0 ? `קו ${i / 2 + 1} - עליון` : `קו ${Math.floor(i / 2) + 1} - תחתון`
+      )]
+    : ["עלה", "עמוד", ...Array.from({ length: maxMarks }, (_, i) =>
+        i % 2 === 0 ? `גזירה ${i / 2 + 1} מ-` : `עד`
+      )];
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -74,7 +82,11 @@ export default function PrintExport() {
           <p className="text-sm text-[var(--ink-soft)] tabular">
             עמודים {config.firstPage}–{config.lastPage} · {pages.length} עלים · גובה עמוד{" "}
             {config.pageHeightCm} ס״מ · מרווח אנכי {config.verticalSpacingCm} ס״מ ·{" "}
-            {config.mode === "MMF" ? "סימון וקיפול" : `גזירה וקיפול (לשונית מינ׳ ${config.minTabSizeMm} מ״מ)`}{" "}
+            {config.mode === "MMF"
+              ? (config.mmfLines ?? 1) > 1
+                ? `סימון וקיפול (${config.mmfLines} קווים)`
+                : "סימון וקיפול"
+              : `גזירה וקיפול (לשונית מינ׳ ${config.minTabSizeMm} מ״מ)`}{" "}
             · {config.direction}
           </p>
         </div>

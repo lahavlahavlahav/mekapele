@@ -362,7 +362,7 @@ export default function ConfigPanel() {
               <span
                 className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold cursor-help"
                 style={{ background: "var(--line)", color: "var(--ink-soft)" }}
-                title="סימון וקיפול (MMF): כל עלה מקבל עד 2 סימונים. גזירה וקיפול: כל עלה יכול לקבל כמה זוגות גזירה."
+                title="סימון וקיפול (MMF): כל עלה מקבל עד 2 סימונים (או יותר עם כמה קווי MMF). גזירה וקיפול: כל עלה יכול לקבל כמה זוגות גזירה."
               >
                 i
               </span>
@@ -379,6 +379,24 @@ export default function ConfigPanel() {
             <option value="CUT_AND_FOLD">גזירה וקיפול</option>
           </select>
         </Field>
+
+        {config.mode === "MMF" && (
+          <Field
+            label="קווי MMF"
+            hint="כמה קווי קיפול עצמאיים, אחד מעל השני, יכולים להופיע על אותו עלה."
+          >
+            <select
+              className={inputClass}
+              style={inputStyle}
+              value={config.mmfLines ?? 1}
+              onChange={(e) => setConfig({ mmfLines: parseInt(e.target.value, 10) })}
+            >
+              <option value={1}>קו אחד</option>
+              <option value={2}>2 קווים</option>
+              <option value={3}>3 קווים</option>
+            </select>
+          </Field>
+        )}
 
         <Field
           label="שפת הספר / כיוון"

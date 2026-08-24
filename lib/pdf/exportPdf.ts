@@ -73,13 +73,16 @@ export async function exportPatternPdf(
   layout: "table" | "map" = "table"
 ): Promise<void> {
   const { config, pages } = pattern;
-
-  // Cut & Fold can put a couple dozen mark pairs on one busy leaf, each its
-  // own M1/M2/M3... column - the number of columns has to be known before
-  // the doc is constructed so we can pick a page big enough that every
-  // column stays wide enough for a whole number on one line.
+  // Single-line MMF always carries exactly one [top, bottom] pair per leaf,
+  // so it gets the fixed Top/Bottom column layout below. Multiline MMF (2-3
+  // fold bands per leaf) and Cut & Fold both need a variable Mn-per-leaf
+  // grid instead, same as Cut & Fold's - a couple dozen mark pairs can land
+  // on one busy leaf, each its own M1/M2/M3... column, so the column count
+  // has to be known before the doc is constructed to pick a page big enough
+  // that every column stays wide enough for a whole number on one line.
+  const isSingleLineMMF = config.mode === "MMF" && (config.mmfLines ?? 1) <= 1;
   const maxMarks = pages.reduce((m, p) => Math.max(m, p.marksCm.length), 0);
-  const numDataCols = config.mode === "MMF" ? 3 : 1 + maxMarks;
+  const numDataCols = isSingleLineMMF ? 3 : 1 + maxMarks;
 
   let format: "a4" | "a3" = "a4";
   let orientation: "portrait" | "landscape" = "portrait";
@@ -109,7 +112,12 @@ export async function exportPatternPdf(
     doc.text("Mekapele", pageW - 14, 16, { align: "right" });
     doc.setFontSize(9);
     doc.setTextColor(120);
-    const modeLabel = config.mode === "MMF" ? "MMF" : "Cut & Fold";
+    const modeLabel =
+      config.mode === "MMF"
+        ? (config.mmfLines ?? 1) > 1
+          ? `Multiline MMF (${config.mmfLines} lines)`
+          : "MMF"
+        : "Cut & Fold";
     doc.text(
       `pages ${config.firstPage}-${config.lastPage} | ${pages.length} leaves | ${config.pageHeightCm}cm (spacing ${config.verticalSpacingCm}cm) | ${modeLabel} | ${config.direction}`,
       pageW - 14,
@@ -122,16 +130,15 @@ export async function exportPatternPdf(
   if (layout === "map") {
     drawFoldMap(doc, pages, config.pageHeightCm, pageW, pageH, drawHeader);
   } else {
-    const head =
-      config.mode === "MMF"
-        ? [["Page", "Top (cm)", "Bottom (cm)"]]
-        : [["Page", ...Array.from({ length: maxMarks }, (_, i) => `M${i + 1}`)]];
+    const head = isSingleLineMMF
+      ? [["Page", "Top (cm)", "Bottom (cm)"]]
+      : [["Page", ...Array.from({ length: maxMarks }, (_, i) => `M${i + 1}`)]];
 
     const body = pages.map((p) => {
       if (p.isBlank) {
         return [String(p.page), ...Array(numDataCols - 1).fill("—")];
       }
-      if (config.mode === "MMF") {
+      if (isSingleLineMMF) {
         return [
           String(p.page),
           p.marksCm[0]?.toFixed(1) ?? "",

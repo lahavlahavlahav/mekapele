@@ -13,7 +13,8 @@ interface FocusCardProps {
 
 /**
  * Focus Mode: the single page being folded right now, in large, glanceable
- * typography. MMF shows a top/bottom mark pair; Cut & Fold shows cut pairs.
+ * typography. MMF shows one top/bottom mark pair per fold line (2-3 for
+ * Multiline MMF); Cut & Fold shows cut pairs.
  */
 export default function FocusCard({
   measurement,
@@ -73,9 +74,9 @@ export default function FocusCard({
               key={i}
               className="flex items-center justify-center gap-4 sm:gap-6"
             >
-              {mode === "CUT_AND_FOLD" && pairs.length > 1 && (
-                <span className="eyebrow w-6 text-right" style={{ color: "rgba(246,241,231,0.45)" }}>
-                  {i + 1}
+              {pairs.length > 1 && (
+                <span className="eyebrow w-10 text-right" style={{ color: "rgba(246,241,231,0.45)" }}>
+                  {mode === "MMF" ? `קו ${i + 1}` : i + 1}
                 </span>
               )}
               <Mark label={mode === "MMF" ? "עליון" : "גזירה מ-"} value={a} />

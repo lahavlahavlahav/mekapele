@@ -15,6 +15,13 @@ export interface BookConfig {
    */
   verticalSpacingCm: number;
   mode: FoldingMode;
+  /**
+   * Multiline MMF: how many independent fold bands stack top-to-bottom on
+   * each leaf (1 = classic single-line MMF; 2 or 3 lets separate picture
+   * elements fold on the same leaf instead of only ever alternating across
+   * leaves). Only used when mode is "MMF".
+   */
+  mmfLines: number;
   minTabSizeMm: number; // only used in CUT_AND_FOLD, default 1.0
   direction: ReadingDirection;
   /** Trim empty white columns off the left/right edges before slicing. */

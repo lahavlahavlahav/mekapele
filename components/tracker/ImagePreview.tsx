@@ -38,12 +38,30 @@ function heightHasMark(marksCm: number[], cm: number): boolean {
   return false;
 }
 
+/** Inverse of lib/algorithm.ts's pixelYToCm - physical cm down the page -> pixel row. */
+function cmToPixelY(cm: number, imgHeightPixels: number, verticalSpacingCm: number, pageHeightCm: number): number {
+  if (verticalSpacingCm <= 0) return 0;
+  const topMarginCm = (pageHeightCm - verticalSpacingCm) / 2;
+  return ((cm - topMarginCm) / verticalSpacingCm) * imgHeightPixels;
+}
+
+const DONE_COLOR = "#007bff";
+const CURRENT_SEGMENT_COLOR = "#e60000";
+const CURRENT_GUIDE_COLOR = "rgba(255,192,203,0.3)";
+
 /**
  * Renders the target image and overlays the vertical slices:
- *   - folded pages → filled coral
- *   - current page → outlined gold
+ *   - completed pages (confirmed via "קיפלתי", tracked in foldedPages - not
+ *     just "before the current page," since browsing/jumping around is a
+ *     supported way to use this tracker and shouldn't misreport progress)
+ *     → filled blue across the whole column.
+ *   - the current page → NOT tinted as a whole column. Instead a faint
+ *     full-height guide line marks the column, with a precise, thick red
+ *     segment drawn only where this leaf's actual marks are (mapped from
+ *     its real cm values), so the highlight shows exactly what to fold.
+ *   - pending pages → left as the plain underlying image, no tint.
  *   - a thin divider line at every leaf boundary (always visible, not just
- *     current/folded), so the whole layout is readable at a glance
+ *     current/done), so the whole layout is readable at a glance.
  * Slice positions honor reading direction so the fill grows from the
  * correct edge (left for LTR, right for RTL).
  *
@@ -94,22 +112,34 @@ export default function ImagePreview({
         const col = colOrder[page - 1];
         const { startX, endX } = sampleColumnBounds(imgW, totalLeaves, col);
         const w = endX - startX + 1;
+        const centerX = startX + w / 2;
 
-        if (foldedSet.has(page)) {
-          ctx.globalAlpha = 0.55;
-          ctx.fillStyle = "#e2614a";
-          ctx.fillRect(startX, 0, w, imgH);
-        }
         if (page === currentPage) {
+          // Faint guide line down the whole column, then the precise red
+          // segment(s) drawn on top only where this leaf actually has marks.
           ctx.globalAlpha = 1;
-          ctx.strokeStyle = "#c79a3a";
-          ctx.lineWidth = Math.max(2, imgW * 0.006);
-          ctx.strokeRect(
-            startX + ctx.lineWidth / 2,
-            ctx.lineWidth / 2,
-            w - ctx.lineWidth,
-            imgH - ctx.lineWidth
-          );
+          ctx.strokeStyle = CURRENT_GUIDE_COLOR;
+          ctx.lineWidth = Math.max(2, w * 0.4);
+          ctx.beginPath();
+          ctx.moveTo(centerX, 0);
+          ctx.lineTo(centerX, imgH);
+          ctx.stroke();
+
+          const marksCm = pages[page - 1]?.marksCm ?? [];
+          ctx.strokeStyle = CURRENT_SEGMENT_COLOR;
+          ctx.lineWidth = Math.max(4, w * 0.55);
+          for (let i = 0; i + 1 < marksCm.length; i += 2) {
+            const yTop = cmToPixelY(Math.min(marksCm[i], marksCm[i + 1]), imgH, verticalSpacingCm, pageHeightCm);
+            const yBottom = cmToPixelY(Math.max(marksCm[i], marksCm[i + 1]), imgH, verticalSpacingCm, pageHeightCm);
+            ctx.beginPath();
+            ctx.moveTo(centerX, yTop);
+            ctx.lineTo(centerX, yBottom);
+            ctx.stroke();
+          }
+        } else if (foldedSet.has(page)) {
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = DONE_COLOR;
+          ctx.fillRect(startX, 0, w, imgH);
         }
 
         // Leaf-boundary divider — every leaf gets its own line, always on.

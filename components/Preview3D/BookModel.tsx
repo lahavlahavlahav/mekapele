@@ -27,8 +27,10 @@ const ENDPAPER_GUTTER_FRACTION = 0.05;
 // Pure white pages read as a clearly different material from the cover
 // regardless of whatever color the cover is set to - the two must never blend together.
 const PAGE_COLOR = "#ffffff";
-/** Default cover color (light gray) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. */
-export const DEFAULT_COVER_COLOR = "#d3d3d3";
+/** Default cover color (dark gray) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. Must read as clearly darker than the white pages, not a near-white that blends into them. */
+export const DEFAULT_COVER_COLOR = "#808080";
+/** The base plinth is its own distinct wood-brown, not tied to the cover color. */
+const STAND_COLOR = "#5c3317";
 
 /**
  * Every real leaf gets its own angle, spread across the full fan
@@ -296,11 +298,11 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
         color={coverColor}
       />
 
-      {/* Flat base plinth under the standing, fanned-open book - shares the
-          cover's color/material rather than its own fixed wood tone. */}
+      {/* Flat wooden base plinth under the standing, fanned-open book - its
+          own distinct dark brown, not tied to whatever the cover is set to. */}
       <mesh position={[0, -pageHeightCm / 2 - standHeight / 2, standDepth * 0.15]} castShadow receiveShadow>
         <boxGeometry args={[standWidth, standHeight, standDepth]} />
-        <meshBasicMaterial color={coverColor} />
+        <meshBasicMaterial color={STAND_COLOR} />
       </mesh>
     </group>
   );

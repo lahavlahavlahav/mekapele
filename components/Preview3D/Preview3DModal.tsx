@@ -50,7 +50,11 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
         <Canvas
           shadows
           dpr={[1, 2]}
-          camera={{ position: [radius * 0.15, radius * 0.25, radius * 1.7], fov: 40 }}
+          // Tighter than before (~0.77x radius vs. ~1.7x) - the fanned page
+          // relief is the actual subject and should dominate the frame by
+          // default; the flat covers filling most of it was the real gap
+          // versus the reference render, not the geometry underneath.
+          camera={{ position: [radius * 0.07, radius * 0.11, radius * 0.77], fov: 40 }}
         >
           <color attach="background" args={["#2a3142"]} />
           <ambientLight intensity={0.55} />

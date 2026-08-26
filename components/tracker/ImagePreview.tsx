@@ -204,20 +204,18 @@ export default function ImagePreview({
         style={{ cursor: "crosshair" }}
         aria-label="תצוגת התקדמות הקיפול - לחצו במקום כלשהו כדי לעבור לעמוד הזה ולראות את המספרים שלו"
       />
-      {clickInfo && (
+      {clickInfo && clickInfo.onMark && (
         <div
           className="absolute px-2 py-1 rounded-lg text-xs font-semibold text-white tabular pointer-events-none"
           style={{
-            background: clickInfo.onMark ? "rgba(29,36,51,0.9)" : "rgba(29,36,51,0.55)",
+            background: "rgba(29,36,51,0.9)",
             left: `${clickInfo.xPct}%`,
             top: `${clickInfo.yPct}%`,
             transform: "translate(-50%, -120%)",
             whiteSpace: "nowrap",
           }}
         >
-          {clickInfo.onMark
-            ? `עלה ${clickInfo.leaf} · ${clickInfo.cm.toFixed(1)} ס״מ`
-            : "אין קיפול בגובה הזה"}
+          {`עלה ${clickInfo.leaf} · ${clickInfo.cm.toFixed(1)} ס״מ`}
         </div>
       )}
     </div>

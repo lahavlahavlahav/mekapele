@@ -70,6 +70,13 @@ export default function MyPatterns() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <header className="flex items-center gap-3 mb-8">
+        <button
+          onClick={() => setView("config")}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: "var(--line)" }}
+        >
+          → חזרה
+        </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/mekapele-logo.png" alt="Mekapele" className="h-9 w-auto" />
         <div className="flex-1">

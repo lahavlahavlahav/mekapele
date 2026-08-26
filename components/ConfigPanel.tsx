@@ -34,7 +34,7 @@ const PRECISION_OPTIONS: { label: string; mm: number }[] = [
 
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
 export default function ConfigPanel() {
-  const { config, setConfig, loadPattern, pattern, sourceImage, foldedPages, setView } = useStore();
+  const { config, setConfig, loadPattern, pattern, sourceImage, thumbnail, foldedPages, setView } = useStore();
   const { user, getToken } = useAuth();
   const hearts = useHearts();
   const [file, setFile] = useState<File | null>(null);
@@ -82,7 +82,7 @@ export default function ConfigPanel() {
     try {
       const name =
         prompt("שם לתבנית:", "תבנית קיפול") || "תבנית קיפול";
-      await savePattern(user.uid, name, pattern);
+      await savePattern(user.uid, name, pattern, thumbnail);
       setSaved(true);
     } catch (e) {
       // Surface the real Firebase error code (e.g. "permission-denied",

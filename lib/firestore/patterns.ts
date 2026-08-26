@@ -32,6 +32,12 @@ export interface SavedPattern {
   // Tracker progress persisted alongside the pattern.
   currentPage: number;
   foldedPages: number[];
+  /** Small reference-image data URL (see makeThumbnail) - without it, a
+   * pattern reopened from the cloud has no image to overlay in the tracker's
+   * visual preview, just the blank column striping. Firestore's 1MiB
+   * per-document limit is why this is the small thumbnail, not the
+   * algorithm's own higher-resolution working image. */
+  thumbnail: string | null;
 }
 
 interface PatternDoc {
@@ -41,6 +47,7 @@ interface PatternDoc {
   currentPage: number;
   foldedPages: number[];
   userId: string;
+  thumbnail: string | null;
 }
 
 function patternsCol(uid: string) {
@@ -51,7 +58,8 @@ function patternsCol(uid: string) {
 export async function savePattern(
   uid: string,
   name: string,
-  pattern: FoldingPattern
+  pattern: FoldingPattern,
+  thumbnail: string | null
 ): Promise<string> {
   const ref = await addDoc(patternsCol(uid), {
     name,
@@ -60,6 +68,7 @@ export async function savePattern(
     currentPage: 1,
     foldedPages: [],
     userId: uid,
+    thumbnail,
   } satisfies Omit<PatternDoc, "createdAt"> & { createdAt: unknown });
   return ref.id;
 }
@@ -77,6 +86,7 @@ export async function listPatterns(uid: string): Promise<SavedPattern[]> {
       createdAt: data.createdAt ? data.createdAt.toMillis() : Date.now(),
       currentPage: data.currentPage ?? 1,
       foldedPages: data.foldedPages ?? [],
+      thumbnail: data.thumbnail ?? null,
     };
   });
 }

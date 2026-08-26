@@ -51,7 +51,7 @@ export default function MyPatterns() {
 
   const onOpen = (sp: SavedPattern) => {
     // Hydrate the store with the saved pattern + progress, then open tracker.
-    loadPattern(sp.pattern, sp.pattern.imageWidth ? null : null);
+    loadPattern(sp.pattern, sp.thumbnail);
     useStore.setState({
       currentPage: sp.currentPage,
       foldedPages: sp.foldedPages,

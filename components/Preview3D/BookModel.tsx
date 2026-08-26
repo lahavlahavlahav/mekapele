@@ -24,9 +24,9 @@ const DEG2RAD = Math.PI / 180;
 /** How far the endpaper sits between the outer leaf and the cover: 0 = at the leaf edge, 1 = flush with the cover. */
 const ENDPAPER_GUTTER_FRACTION = 0.05;
 
-// Pure white pages read as a clearly different material from the cover
+// Warm beige pages read as a clearly different material from the cover
 // regardless of whatever color the cover is set to - the two must never blend together.
-const PAGE_COLOR = "#ffffff";
+const PAGE_COLOR = "#e8ddc7";
 /** Default cover color (gray, both cover panels) when the caller doesn't pass one - user-choosable via BookModel's coverColor prop. Must read as clearly darker than the white pages, not a near-white that blends into them. */
 export const DEFAULT_COVER_COLOR = "#808080";
 /** The base plinth is its own distinct wood-brown, not tied to the cover color. */

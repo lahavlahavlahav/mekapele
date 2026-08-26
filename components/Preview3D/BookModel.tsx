@@ -31,6 +31,15 @@ const PAGE_COLOR = "#ffffff";
 export const DEFAULT_COVER_COLOR = "#808080";
 /** The base plinth is its own distinct wood-brown, not tied to the cover color. */
 const STAND_COLOR = "#5c3317";
+/**
+ * The spine core's own fixed gray, independent of whatever coverColor the
+ * user picks - it's almost entirely surrounded by pale pages rather than the
+ * dark background the side covers sit against, so an identical gray value
+ * can visually read lighter there by contrast alone. A dedicated, distinctly
+ * gray tone keeps it unambiguous regardless of that effect or the chosen
+ * cover color.
+ */
+const SPINE_COLOR = "#6b6b6b";
 
 /**
  * Every real leaf gets its own angle, spread across the full fan
@@ -273,8 +282,9 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
         <cylinderGeometry args={[spineRadius, spineRadius, pageHeightCm, 16]} />
         {/* Unlit on purpose: the whole cover must read as one flat, uniform
             color regardless of the scene's (asymmetric) lighting - a lit
-            material always shades one side darker than the other. */}
-        <meshBasicMaterial color={coverColor} />
+            material always shades one side darker than the other. Its own
+            fixed gray (not coverColor) - see SPINE_COLOR. */}
+        <meshBasicMaterial color={SPINE_COLOR} />
       </mesh>
 
       {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}

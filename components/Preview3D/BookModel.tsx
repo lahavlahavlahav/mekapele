@@ -216,13 +216,19 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
 
   const angles = useLeafAngles(leafCount, leafMaxAngle, config.direction);
 
+  // Rendered thinner than each leaf's full angular slot (see `thickness`
+  // above), leaving a small visible gap to the next leaf instead of one
+  // continuous touching slab - real fanned pages read as distinct individual
+  // sheets, which is what actually shows the fold structure.
+  const leafRenderThickness = thickness * 0.65;
+
   const foldedGeometries = useMemo(
     () =>
       pages.map((page) => {
         const shape = buildLeafShape(page, { pageHeightCm, foldedDepth, fullDepth, mode: config.mode });
-        return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
+        return new THREE.ExtrudeGeometry(shape, { depth: leafRenderThickness, bevelEnabled: false });
       }),
-    [pages, pageHeightCm, foldedDepth, fullDepth, thickness, config.mode]
+    [pages, pageHeightCm, foldedDepth, fullDepth, leafRenderThickness, config.mode]
   );
 
   const coverAngleBack = -coverHalfAngle;
@@ -244,21 +250,6 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
   const endpaperAngleBack = -endpaperHalfAngle;
   const endpaperAngleFront = endpaperHalfAngle;
 
-  // Blank (or partly-blank) leaves recede close to the spine at the heights
-  // they have no mark, opening a wedge-shaped gap between neighboring leaves
-  // fanned at different angles - wide enough, at typical opening angles, to
-  // show raw canvas background straight through. A spine core fills that
-  // gap with something that reads as the book's actual binding, the way a
-  // real fanned book shows its spine through the gaps between splayed pages.
-  // Sized proportionally to sin(coverHalfAngle): the wedge gap between two
-  // leaves at a given depth grows with their angular separation, and must
-  // shrink to ~0 as the book approaches fully closed (angle 0), where leaves
-  // are nearly parallel and there is no real gap to fill - a fixed radius
-  // stayed oversized at small angles and stuck out past the closed book.
-  // Kept slim (real book spines are narrow relative to page depth) - just
-  // enough to plug the wedge, not a thick drum.
-  const spineRadius = Math.max(0.01, fullDepth * 0.22 * Math.sin(coverHalfAngle));
-
   // Footprint of the fanned block on the table (X = sideways spread, Z = forward reach).
   // Floored so the stand doesn't visually vanish as the book approaches fully closed.
   const standWidth = Math.max(
@@ -274,17 +265,6 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
 
   return (
     <group>
-      {/* Spine core: sits exactly on the fan's shared axis, so it's always
-          hidden behind any leaf that actually reaches out, and only shows
-          through the gap where a run of blank leaves stays folded flat. */}
-      <mesh position={[0, 0, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[spineRadius, spineRadius, pageHeightCm, 16]} />
-        {/* Unlit on purpose: the whole cover must read as one flat, uniform
-            color regardless of the scene's (asymmetric) lighting - a lit
-            material always shades one side darker than the other. */}
-        <meshBasicMaterial color={coverColor} />
-      </mesh>
-
       {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}
       <LeafFan geometries={foldedGeometries} angles={angles} pageHeightCm={pageHeightCm} color={PAGE_COLOR} />
 

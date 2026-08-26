@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import BookModel, { DEFAULT_COVER_COLOR } from "./BookModel";
@@ -27,6 +27,17 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
   const radius = pageHeightCm * 1.4;
   const target: [number, number, number] = [0, 0, 0];
   const groundY = -pageHeightCm * 0.58;
+
+  // Escape as a second way out, in addition to the close button below -
+  // this is a fullscreen fixed-position overlay, so the browser's own back/
+  // close affordances don't apply to it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "rgba(29,36,51,0.92)" }}>

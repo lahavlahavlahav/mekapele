@@ -178,7 +178,12 @@ function Leaf({
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      <meshStandardMaterial color={color} map={texture} roughness={0.85} metalness={0} side={THREE.DoubleSide} />
+      {/* Unlit, like the cover/spine/base - a lit material darkens toward
+          gray depending on the angle it's facing relative to the scene
+          lights, so "white" pages could render dark gray at grazing camera
+          angles despite their actual color. Unlit always shows the flat
+          color, keeping pages reliably distinct from the gray cover. */}
+      <meshBasicMaterial color={color} map={texture} side={THREE.DoubleSide} />
     </mesh>
   );
 }

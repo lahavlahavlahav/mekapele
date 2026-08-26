@@ -181,12 +181,14 @@ function Leaf({
   const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
   return (
     <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow receiveShadow>
-      {/* Unlit, like the cover/spine/base - a lit material darkens toward
-          gray depending on the angle it's facing relative to the scene
-          lights, so "white" pages could render dark gray at grazing camera
-          angles despite their actual color. Unlit always shows the flat
-          color, keeping pages reliably distinct from the gray cover. */}
-      <meshBasicMaterial color={color} map={texture} side={THREE.DoubleSide} />
+      {/* Lit, unlike the cover/spine/base - the relief's depth (the whole
+          point of book-folding art) only reads as sculptural through real
+          shading gradients and cast shadows on the curved/stepped surfaces,
+          which an unlit material can't produce at all. The earlier washed-
+          out-gray problem was the scene's ambient light being too low, not
+          lit shading itself - fixed at the light level (Preview3DModal),
+          not by removing shading altogether. */}
+      <meshStandardMaterial color={color} map={texture} roughness={0.85} metalness={0} side={THREE.DoubleSide} />
     </mesh>
   );
 }

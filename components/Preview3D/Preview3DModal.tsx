@@ -58,14 +58,21 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           camera={{ position: [radius * 0.12, radius * 0.19, radius * 1.3], fov: 40 }}
         >
           <color attach="background" args={["#2a3142"]} />
-          <ambientLight intensity={0.55} />
+          {/* Pages are lit (real shading/shadows for the relief's depth) -
+              ambient must stay high enough that a surface facing away from
+              both directional lights still reads close to its true color
+              instead of dropping toward gray; 0.55 let that happen at
+              grazing angles. Raised here, plus a brighter fill light, so a
+              page's darkest side is still clearly its own color, not the
+              same tone as a shadowed cover. */}
+          <ambientLight intensity={0.85} />
           <directionalLight
             position={[radius, radius * 1.5, radius]}
             intensity={1.1}
             castShadow
             shadow-mapSize={[1024, 1024]}
           />
-          <directionalLight position={[-radius, radius * 0.5, -radius]} intensity={0.35} />
+          <directionalLight position={[-radius, radius * 0.5, -radius]} intensity={0.5} />
 
           <Suspense fallback={null}>
             <BookModel

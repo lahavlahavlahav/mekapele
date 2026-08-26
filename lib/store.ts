@@ -42,6 +42,9 @@ interface AppState {
   currentPage: number; // 1-based
   foldedPages: number[]; // sorted list of completed page numbers
 
+  /** uid of whichever account last touched this device's local session - lets syncUser tell "same person came back" from "different account, same browser". */
+  lastUid: string | null;
+
   // actions
   setConfig: (patch: Partial<BookConfig>) => void;
   loadPattern: (pattern: FoldingPattern, thumbnail: string | null, sourceImage?: string | null) => void;
@@ -58,6 +61,18 @@ interface AppState {
   setLeafMarks: (leaf: number, marksCm: number[]) => void;
   /** Revert one leaf's marks back to the originally generated values. */
   resetLeafMarks: (leaf: number) => void;
+  /**
+   * Call whenever Firebase auth's current user changes (including on load).
+   * localStorage is per-BROWSER, not per-account, so without this a second
+   * person signing into their own account on the same device would inherit
+   * whatever image/pattern the previous account left behind - looking like
+   * they'd already uploaded something they never touched. Signing back into
+   * the SAME account that was last active here keeps its session intact;
+   * anything else (a different account, or the first sign-in on this
+   * device) starts from a clean slate. Guest browsing (uid null) is left
+   * alone either way - only an actual account switch clears anything.
+   */
+  syncUser: (uid: string | null) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -71,6 +86,7 @@ export const useStore = create<AppState>()(
       view: "config",
       currentPage: 1,
       foldedPages: [],
+      lastUid: null,
 
       setConfig: (patch) =>
         set((s) => ({ config: { ...s.config, ...patch } })),
@@ -156,6 +172,21 @@ export const useStore = create<AppState>()(
           currentPage: 1,
           foldedPages: [],
         }),
+
+      syncUser: (uid) =>
+        set((s) => {
+          if (!uid || uid === s.lastUid) return s;
+          return {
+            pattern: null,
+            originalPages: null,
+            thumbnail: null,
+            sourceImage: null,
+            view: "config",
+            currentPage: 1,
+            foldedPages: [],
+            lastUid: uid,
+          };
+        }),
     }),
     {
       name: "lilou-book-folder-v1",
@@ -170,6 +201,7 @@ export const useStore = create<AppState>()(
         view: s.view,
         currentPage: s.currentPage,
         foldedPages: s.foldedPages,
+        lastUid: s.lastUid,
       }),
       // A user's localStorage may hold a config saved by an older version of
       // the app that predates fields like verticalSpacingCm/cropSides/

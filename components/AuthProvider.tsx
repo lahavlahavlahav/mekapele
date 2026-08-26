@@ -23,6 +23,7 @@ import {
   signOut as fbSignOut,
   getIdToken,
 } from "@/lib/firebase/client";
+import { useStore } from "@/lib/store";
 
 interface AuthContextValue {
   user: User | null;
@@ -54,6 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsub = watchAuth((u) => {
         setUser(u);
         setLoading(false);
+        // localStorage is per-browser, not per-account - without this, a
+        // second account signing in on the same device would inherit
+        // whatever image/pattern the previous account left behind. No-op if
+        // it's the same account that was last active here.
+        useStore.getState().syncUser(u?.uid ?? null);
         if (u) {
           // Fire-and-forget: claims any guest-checkout hearts bought under
           // this email before this sign-in. Firestore's own onSnapshot

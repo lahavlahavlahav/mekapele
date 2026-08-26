@@ -58,7 +58,7 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           className="px-4 py-2 rounded-lg font-semibold text-sm"
           style={{ background: "var(--coral)", color: "#fff" }}
         >
-          סגירה ✕
+          → חזרה
         </button>
       </div>
 

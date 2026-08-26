@@ -32,37 +32,64 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
+/** Read a full-resolution HTMLImageElement into a luminance array (no resizing). */
+function readLuminance(img: HTMLImageElement): Uint8ClampedArray {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Canvas is not available in this browser.");
+  ctx.drawImage(img, 0, 0);
+  const { data } = ctx.getImageData(0, 0, img.width, img.height);
+
+  const luminance = new Uint8ClampedArray(img.width * img.height);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    // Treat fully transparent pixels as white (paper).
+    const alpha = data[i + 3];
+    luminance[p] = alpha === 0 ? 255 : luma(data[i], data[i + 1], data[i + 2]);
+  }
+  return luminance;
+}
+
 /**
  * Extract a luminance grid from an uploaded image file.
  *
  * Large images are downscaled so the longest edge is at most `maxEdge`px,
  * keeping processing fast on phones while preserving fold resolution.
+ *
+ * The downscale itself takes the DARKEST source pixel in each reduced cell
+ * (min-pooling), not a smoothed/averaged resize - a smoothed resize blends a
+ * thin black line with its white neighbors, often lightening it enough to
+ * fall on the wrong side of the black/white threshold and vanish entirely.
+ * Min-pooling can only ever make a cell as light as its darkest source pixel,
+ * so a genuinely black hairline in the original survives at any scale factor.
  */
 export async function extractPixelGrid(
   file: File,
   maxEdge = 1600
 ): Promise<PixelGrid> {
   const img = await loadImage(file);
+  const srcLuminance = readLuminance(img);
 
   const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  if (scale >= 1) {
+    return { width: img.width, height: img.height, luminance: srcLuminance };
+  }
+
   const width = Math.max(1, Math.round(img.width * scale));
   const height = Math.max(1, Math.round(img.height * scale));
+  const luminance = new Uint8ClampedArray(width * height).fill(255);
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("Canvas is not available in this browser.");
-
-  ctx.drawImage(img, 0, 0, width, height);
-  const { data } = ctx.getImageData(0, 0, width, height);
-
-  const luminance = new Uint8ClampedArray(width * height);
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-    // Treat fully transparent pixels as white (paper).
-    const alpha = data[i + 3];
-    luminance[p] =
-      alpha === 0 ? 255 : luma(data[i], data[i + 1], data[i + 2]);
+  for (let sy = 0; sy < img.height; sy++) {
+    const dy = Math.min(height - 1, Math.floor(sy * scale));
+    const srcRow = sy * img.width;
+    const dstRow = dy * width;
+    for (let sx = 0; sx < img.width; sx++) {
+      const dx = Math.min(width - 1, Math.floor(sx * scale));
+      const idx = dstRow + dx;
+      const v = srcLuminance[srcRow + sx];
+      if (v < luminance[idx]) luminance[idx] = v;
+    }
   }
 
   return { width, height, luminance };

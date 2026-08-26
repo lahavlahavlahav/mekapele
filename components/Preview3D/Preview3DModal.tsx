@@ -14,7 +14,13 @@ interface Preview3DModalProps {
 
 /** Fullscreen modal hosting the interactive 3D book preview. */
 export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Preview3DModalProps) {
-  const [openAngleDeg, setOpenAngleDeg] = useState(90);
+  // MMF folds each leaf flat in close to the spine except where a mark
+  // protrudes - real MMF pieces are typically displayed close to closed, a
+  // tight, subtle relief. Cut & Fold's tabs stick further out and read best
+  // fully open, showing off the deeper sculptural relief - matches the
+  // default this already had. Different starting point per technique, still
+  // freely adjustable via the slider below.
+  const [openAngleDeg, setOpenAngleDeg] = useState(pattern.config.mode === "MMF" ? 45 : 90);
   // Only visible when no cover image is set - an uploaded cover always wins.
   const [coverColor, setCoverColor] = useState(DEFAULT_COVER_COLOR);
   const pageHeightCm = pattern.config.pageHeightCm;

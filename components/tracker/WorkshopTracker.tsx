@@ -31,12 +31,21 @@ export default function WorkshopTracker() {
   } = useStore();
 
   // Keyboard nav (desktop): arrows to move, space/enter to mark folded.
+  // Which physical arrow key means "forward" depends on the book's own
+  // reading direction (ImagePreview's highlighted column already moves this
+  // way via orderColumnsByDirection) - for RTL, page 1 sits at the image's
+  // rightmost column and "next" moves the highlight leftward, so the LEFT
+  // key must be forward; for LTR it's the mirror image. A fixed mapping was
+  // only ever correct for one direction, reversed for the other.
+  const isRTL = pattern?.config.direction !== "LTR";
   useEffect(() => {
+    const forwardKey = isRTL ? "ArrowLeft" : "ArrowRight";
+    const backwardKey = isRTL ? "ArrowRight" : "ArrowLeft";
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "SELECT") return;
-      if (e.key === "ArrowRight") prevPage();
-      else if (e.key === "ArrowLeft") nextPage();
+      if (e.key === forwardKey) nextPage();
+      else if (e.key === backwardKey) prevPage();
       else if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         markCurrentFolded();
@@ -44,7 +53,7 @@ export default function WorkshopTracker() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nextPage, prevPage, markCurrentFolded]);
+  }, [nextPage, prevPage, markCurrentFolded, isRTL]);
 
   if (!pattern) return null;
 
@@ -175,7 +184,7 @@ export default function WorkshopTracker() {
       >
         <div className="max-w-5xl mx-auto w-full flex items-center gap-3">
           <NavButton onClick={prevPage} disabled={atStart}>
-            → הקודם
+            {isRTL ? "→ הקודם" : "← הקודם"}
           </NavButton>
           <div className="flex-1 flex items-center justify-center gap-3 min-w-0">
             <span className="font-display tabular text-lg whitespace-nowrap">
@@ -190,7 +199,7 @@ export default function WorkshopTracker() {
             </div>
           </div>
           <NavButton onClick={nextPage} disabled={atEnd}>
-            הבא ←
+            {isRTL ? "הבא ←" : "הבא →"}
           </NavButton>
         </div>
       </nav>

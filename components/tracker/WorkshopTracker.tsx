@@ -25,6 +25,7 @@ export default function WorkshopTracker() {
     nextPage,
     prevPage,
     goToPage,
+    jumpToPage,
     markCurrentFolded,
     unmarkCurrentFolded,
     setView,
@@ -157,11 +158,11 @@ export default function WorkshopTracker() {
             precisionMm={pattern.config.precisionMm}
             pages={pattern.pages}
             pattern={pattern}
-            onSelectPage={goToPage}
+            onSelectPage={jumpToPage}
           />
           <p className="no-print mt-2 flex items-center gap-1.5 text-xs text-[var(--ink-soft)]">
             לחצו על התמונה כדי לקפוץ לדף
-            <InfoTip text="כל פס אנכי בתמונה הוא דף אחד בספר. הדף המסומן במסגרת זהב הוא הדף הנוכחי, ודפים שכבר קיפלתם נצבעים. לחיצה על נקודה בתמונה עוברת לדף הזה ומראה את המרחק בס״מ מהקצה העליון." />
+            <InfoTip text="כל פס אנכי בתמונה הוא דף אחד בספר. הדף הנוכחי מסומן באדום, ודפים שכבר קיפלתם נצבעים בכחול. לחיצה על נקודה בתמונה קופצת לדף הזה, וההתקדמות מתעדכנת: כל הדפים שלפניו נחשבים מקופלים." />
           </p>
         </section>
 
@@ -197,7 +198,7 @@ export default function WorkshopTracker() {
                 </button>
                 <InfoTip
                   align="end"
-                  text="קופץ לדף אקראי - שימושי לבדיקת דיוק: בודקים דף שכבר קיפלתם מול המידות. 'איפוס התקדמות' מוחק את כל סימוני 'קיפלתי' (התבנית עצמה לא משתנה)."
+                  text="קופץ לדף אקראי - שימושי לבדיקת דיוק: בודקים דף שכבר קיפלתם מול המידות (ההתקדמות לא משתנה). 'איפוס התקדמות' מוחק את כל סימוני 'קיפלתי' (התבנית עצמה לא משתנה)."
                 />
               </span>
             </div>
@@ -224,7 +225,7 @@ export default function WorkshopTracker() {
                 alongside both nav buttons in one row - keep it desktop/tablet only,
                 mobile keeps the compact counter (as before this bar was unified). */}
             <div className="hidden sm:block">
-              <PageJump current={currentPage} total={totalLeaves} onJump={goToPage} />
+              <PageJump current={currentPage} total={totalLeaves} onJump={jumpToPage} />
             </div>
           </div>
           <NavButton onClick={nextPage} disabled={atEnd}>

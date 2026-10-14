@@ -51,6 +51,12 @@ interface AppState {
   setView: (view: AppView) => void;
 
   goToPage: (page: number) => void;
+  /**
+   * Deliberate jump to a leaf (page-number box, click on the image): progress
+   * follows the jump - every leaf before it counts as folded, everything
+   * from it onward as not yet folded.
+   */
+  jumpToPage: (page: number) => void;
   nextPage: () => void;
   prevPage: () => void;
   markCurrentFolded: () => void;
@@ -108,6 +114,15 @@ export const useStore = create<AppState>()(
       goToPage: (page) => {
         const max = get().pattern?.pages.length ?? 1;
         set({ currentPage: Math.min(Math.max(1, page), max) });
+      },
+
+      jumpToPage: (page) => {
+        const max = get().pattern?.pages.length ?? 1;
+        const target = Math.min(Math.max(1, page), max);
+        set({
+          currentPage: target,
+          foldedPages: Array.from({ length: target - 1 }, (_, i) => i + 1),
+        });
       },
 
       nextPage: () => {

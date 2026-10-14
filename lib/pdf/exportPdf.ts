@@ -13,6 +13,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { FoldingPattern, PageMeasurement } from "@/lib/types";
+import { foldMapRows, pairUp } from "@/lib/foldMap";
 
 /** Load the logo once as a data URL so jsPDF can embed it. */
 async function loadLogo(): Promise<{
@@ -128,7 +129,7 @@ export async function exportPatternPdf(
   };
 
   if (layout === "map") {
-    drawFoldMap(doc, pages, config.pageHeightCm, pageW, pageH, drawHeader);
+    drawFoldMap(doc, foldMapRows(pages, config.direction), config.pageHeightCm, pageW, pageH, drawHeader);
   } else {
     const head = isSingleLineMMF
       ? [["Page", "Top (cm)", "Bottom (cm)"]]
@@ -179,20 +180,13 @@ export async function exportPatternPdf(
   doc.save(`mekapele-${safe}.pdf`);
 }
 
-/** [start, end] pairs (order-independent) from a leaf's flat marksCm array. */
-function pairUp(marksCm: number[]): [number, number][] {
-  const pairs: [number, number][] = [];
-  for (let i = 0; i + 1 < marksCm.length; i += 2) {
-    pairs.push([Math.min(marksCm[i], marksCm[i + 1]), Math.max(marksCm[i], marksCm[i + 1])]);
-  }
-  return pairs;
-}
-
 /**
  * Draws one ruled row per leaf directly with jsPDF vector primitives (no
  * autotable) - a filled bar per marked band, positioned along the page-height
- * axis with 0cm at the right edge ("top of page at right"). Paginates
- * manually since this isn't a table autotable can chunk for us.
+ * axis with 0cm at the right edge ("top of page at right"). A bold vertical
+ * rule marks that 0cm edge down the whole map so the top of the page is
+ * unmistakable. Paginates manually since this isn't a table autotable can
+ * chunk for us.
  */
 function drawFoldMap(
   doc: jsPDF,
@@ -213,34 +207,38 @@ function drawFoldMap(
   const rowsPerPage = Math.max(1, Math.floor((bottom - top) / rowHeight));
 
   const cmToX = (cm: number) => marginLeft + chartWidth - (cm / pageHeightCm) * chartWidth;
+  const topEdgeX = cmToX(0);
 
-  let row = 0;
-  pages.forEach((p, i) => {
-    if (row === 0) {
-      if (i > 0) doc.addPage();
-      drawHeader();
-      doc.setFontSize(9);
-      doc.setTextColor(120);
-      doc.text("Top of page at right", pageW - marginRight, top - 4, { align: "right" });
+  for (let start = 0; start < pages.length; start += rowsPerPage) {
+    const chunk = pages.slice(start, start + rowsPerPage);
+    if (start > 0) doc.addPage();
+    drawHeader();
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text("Top of page at right (bold line = top edge)", pageW - marginRight, top - 4, { align: "right" });
+    doc.setTextColor(0);
+
+    chunk.forEach((p, row) => {
+      const y = top + row * rowHeight;
+      doc.setDrawColor(217, 205, 182);
+      doc.setLineWidth(0.1);
+      doc.line(marginLeft, y, marginLeft + chartWidth, y);
+
+      doc.setFillColor(29, 36, 51);
+      pairUp(p.marksCm).forEach(([lo, hi]) => {
+        const x1 = cmToX(hi);
+        const x2 = cmToX(lo);
+        doc.rect(x1, y - barHeight / 2, Math.max(0.3, x2 - x1), barHeight, "F");
+      });
+
+      doc.setFontSize(8);
       doc.setTextColor(0);
-    }
-
-    const y = top + row * rowHeight;
-    doc.setDrawColor(217, 205, 182);
-    doc.setLineWidth(0.1);
-    doc.line(marginLeft, y, marginLeft + chartWidth, y);
-
-    doc.setFillColor(29, 36, 51);
-    pairUp(p.marksCm).forEach(([lo, hi]) => {
-      const x1 = cmToX(hi);
-      const x2 = cmToX(lo);
-      doc.rect(x1, y - barHeight / 2, Math.max(0.3, x2 - x1), barHeight, "F");
+      doc.text(String(p.page), marginLeft + chartWidth + labelGutter - 2, y + 1.2, { align: "right" });
     });
 
-    doc.setFontSize(8);
-    doc.setTextColor(0);
-    doc.text(String(p.page), marginLeft + chartWidth + labelGutter - 2, y + 1.2, { align: "right" });
-
-    row = row + 1 >= rowsPerPage ? 0 : row + 1;
-  });
+    // Top-of-page edge, spanning every row on this sheet.
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.9);
+    doc.line(topEdgeX, top - rowHeight / 2, topEdgeX, top + (chunk.length - 1) * rowHeight + rowHeight / 2);
+  }
 }

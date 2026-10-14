@@ -350,8 +350,10 @@ export function generateFoldingPattern(
   // few leaves in from the tightened bounding box's own edge. Cropping should
   // mean "start/end exactly where the content does," so drop those too.
   let effectiveConfig = config;
+  let leafOffset = 0;
   if (config.cropSides) {
     const trimmed = trimBlankEdges(pages, first);
+    leafOffset = trimmed.offset;
     pages = trimmed.pages;
     if (trimmed.firstPage !== first || trimmed.lastPage !== last) {
       effectiveConfig = { ...config, firstPage: trimmed.firstPage, lastPage: trimmed.lastPage };
@@ -365,8 +367,32 @@ export function generateFoldingPattern(
     imageHeight: grid.height,
     cropStartX,
     cropWidth,
+    columnCount: leafCount,
+    leafOffset,
     generatedAt: Date.now(),
   };
+}
+
+/**
+ * Exact source-image pixel band [startX, endX] (in the algorithm's working
+ * grid, i.e. pattern.imageWidth space) that leaf `leafIndex` (0-based, in
+ * folding order) was measured from. Every on-screen overlay must use this so
+ * the picture and the numbers can never disagree: it accounts for the side
+ * crop, the blank leaves trimmed off the ends, and reading direction.
+ * Patterns saved before columnCount/leafOffset existed fall back to the old
+ * untrimmed assumption.
+ */
+export function leafSourceBounds(
+  pattern: FoldingPattern,
+  leafIndex: number
+): { startX: number; endX: number } {
+  const columnCount = pattern.columnCount ?? pattern.pages.length;
+  const offset = pattern.leafOffset ?? 0;
+  const cropStartX = pattern.cropStartX ?? 0;
+  const cropWidth = pattern.cropWidth ?? pattern.imageWidth;
+  const order = orderColumnsByDirection(columnCount, pattern.config.direction);
+  const col = order[Math.min(columnCount - 1, Math.max(0, offset + leafIndex))];
+  return sampleColumnBounds(cropWidth, columnCount, col, cropStartX);
 }
 
 /** Map a leaf index (0-based) within the active range to its book page number. */
@@ -383,7 +409,7 @@ function leafToPageNumber(leafIndex: number, firstPage: number): number {
 function trimBlankEdges(
   pages: PageMeasurement[],
   firstPage: number
-): { pages: PageMeasurement[]; firstPage: number; lastPage: number } {
+): { pages: PageMeasurement[]; firstPage: number; lastPage: number; offset: number } {
   let start = 0;
   while (start < pages.length - 1 && pages[start].isBlank) start++;
   let end = pages.length - 1;
@@ -396,7 +422,7 @@ function trimBlankEdges(
     page: leafToPageNumber(i, newFirst),
   }));
   const newLast = trimmed.length > 0 ? trimmed[trimmed.length - 1].page : newFirst;
-  return { pages: trimmed, firstPage: newFirst, lastPage: newLast };
+  return { pages: trimmed, firstPage: newFirst, lastPage: newLast, offset: start };
 }
 
 /**

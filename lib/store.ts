@@ -215,7 +215,9 @@ export const useStore = create<AppState>()(
         return {
           ...current,
           ...persistedState,
-          config: { ...DEFAULT_CONFIG, ...persistedState.config },
+          // Precision is no longer user-selectable - always 1mm, even for
+          // configs saved back when 0.5/0.1mm were options.
+          config: { ...DEFAULT_CONFIG, ...persistedState.config, precisionMm: 1 },
         };
       },
     }

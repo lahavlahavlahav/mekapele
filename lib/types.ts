@@ -66,6 +66,15 @@ export interface FoldingPattern {
    */
   cropStartX?: number;
   cropWidth?: number;
+  /**
+   * How many equal image columns the crop width was divided into (the leaf
+   * count BEFORE blank leaves were trimmed off the ends), and how many
+   * leading leaves were trimmed. Together they pin each remaining leaf to the
+   * exact column it was measured from - see leafSourceBounds. Optional for
+   * the same backward-compat reason as cropStartX.
+   */
+  columnCount?: number;
+  leafOffset?: number;
   generatedAt: number;
 }
 

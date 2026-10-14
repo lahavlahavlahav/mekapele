@@ -7,6 +7,7 @@ import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
 import { generateFoldingPattern, countFolds } from "@/lib/algorithm";
 import type { FoldingMode, FoldingPattern, ReadingDirection } from "@/lib/types";
 import Field from "./ui/Field";
+import InfoTip from "./ui/InfoTip";
 import Footer from "./Footer";
 import { useAuth } from "./AuthProvider";
 import { LoginGate, UserBadge } from "./LoginGate";
@@ -25,12 +26,6 @@ const inputStyle = { borderColor: "var(--line)" } as const;
 
 type HeightUnit = "cm" | "mm" | "in";
 const UNIT_TO_CM: Record<HeightUnit, number> = { cm: 1, mm: 0.1, in: 2.54 };
-
-const PRECISION_OPTIONS: { label: string; mm: number }[] = [
-  { label: "נמוך — 1 מ״מ", mm: 1 },
-  { label: "בינוני — 0.5 מ״מ", mm: 0.5 },
-  { label: "גבוה — 0.1 מ״מ", mm: 0.1 },
-];
 
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
 export default function ConfigPanel() {
@@ -277,7 +272,8 @@ export default function ConfigPanel() {
           />
         ) : (
           <p className="text-[var(--ink-soft)] mb-3">
-            גררו לכאן קובץ JPG / PNG בשחור-לבן או גווני אפור.
+            גררו לכאן קובץ JPG / PNG בשחור-לבן או גווני אפור.{" "}
+            <InfoTip text="הכי טוב: צללית או טקסט בשחור מלא על רקע לבן נקי, בלי צללים. כל מה שבשחור יהפוך לקיפול. רוחב התמונה מתחלק לפי מספר הדפים, וגובהה לפי המרווח האנכי." />
           </p>
         )}
         <label className="inline-block cursor-pointer px-4 py-2 rounded-lg font-semibold text-white" style={{ background: "var(--coral)" }}>
@@ -300,7 +296,11 @@ export default function ConfigPanel() {
       {/* Core parameters */}
       <div className="grid sm:grid-cols-2 gap-5 mb-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="עמוד ראשון" hint="תחילת טווח הקיפול, למשל 41.">
+          <Field
+            label="עמוד ראשון"
+            hint="תחילת טווח הקיפול, למשל 41."
+            info="מספר העמוד המודפס בספר שממנו מתחילים לקפל. מומלץ להשאיר כמה עשרות עמודים ריקים בתחילת הספר כדי שהכריכה תיסגר יפה. כל דף בספר = 2 עמודים, ולכן מספרי העמודים בתבנית קופצים ב-2."
+          >
             <input
               type="number"
               min={1}
@@ -312,7 +312,11 @@ export default function ConfigPanel() {
               }
             />
           </Field>
-          <Field label="עמוד אחרון" hint="סוף טווח הקיפול, למשל 360.">
+          <Field
+            label="עמוד אחרון"
+            hint="סוף טווח הקיפול, למשל 360."
+            info="מספר העמוד האחרון שמקפלים. ככל שהטווח גדול יותר יש יותר דפים (עלים) - והתמונה מתקבלת רחבה ומפורטת יותר."
+          >
             <input
               type="number"
               min={1}
@@ -326,7 +330,11 @@ export default function ConfigPanel() {
           </Field>
         </div>
 
-        <Field label="גובה העמוד" hint="הגובה הפיזי של עמוד אחד.">
+        <Field
+          label="גובה העמוד"
+          hint="הגובה הפיזי של עמוד אחד."
+          info="מודדים בסרגל את גובה הדף מלמעלה עד למטה (לא את הכריכה). כל המידות בתבנית נמדדות מהקצה העליון של הדף."
+        >
           <div className="flex gap-2">
             <input
               type="number"
@@ -356,18 +364,8 @@ export default function ConfigPanel() {
         </Field>
 
         <Field
-          label={
-            <span className="inline-flex items-center gap-1.5">
-              שיטת קיפול
-              <span
-                className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold cursor-help"
-                style={{ background: "var(--line)", color: "var(--ink-soft)" }}
-                title="סימון וקיפול (MMF): כל עלה מקבל עד 2 סימונים (או יותר עם כמה קווי MMF). גזירה וקיפול: כל עלה יכול לקבל כמה זוגות גזירה."
-              >
-                i
-              </span>
-            </span>
-          }
+          label="שיטת קיפול"
+          info="סימון וקיפול (MMF): מסמנים בכל דף נקודה עליונה ותחתונה ומקפלים את הקצוות פנימה - התמונה מתקבלת כתבליט. גזירה וקיפול: גוזרים בין זוגות הסימונים ומקפלים לסירוגין - מאפשר פרטים עדינים יותר וכמה צורות על אותו דף."
         >
           <select
             className={inputClass}
@@ -384,6 +382,7 @@ export default function ConfigPanel() {
           <Field
             label="קווי MMF"
             hint="כמה קווי קיפול עצמאיים, אחד מעל השני, יכולים להופיע על אותו עלה."
+            info="בקו אחד כל דף מקבל קיפול אחד בלבד. עם 2-3 קווים, צורות נפרדות (למשל שתי אותיות אחת מעל השנייה) מקופלות על אותו דף - התוצאה מדויקת יותר אבל הקיפול מורכב יותר."
           >
             <select
               className={inputClass}
@@ -401,6 +400,7 @@ export default function ConfigPanel() {
         <Field
           label="שפת הספר / כיוון"
           hint="LTR לאנגלית · RTL לעברית / ערבית."
+          info="קובע מאיזה צד של התמונה מתחילים: בספר בעברית עמוד 1 נמצא בצד ימין של התמונה, ובספר באנגלית - בצד שמאל. משנה את מספרי העמודים בטבלה; מפת הקיפולים נשארת אותה תמונה."
         >
           <select
             className={inputClass}
@@ -425,12 +425,16 @@ export default function ConfigPanel() {
       >
         אפשרויות נוספות {showMoreOptions ? "−" : "+"}
       </button>
+      <span className="mr-2">
+        <InfoTip text="הגדרות מתקדמות לכיוונון התוצאה. ברירות המחדל מתאימות לרוב התמונות." />
+      </span>
 
       {showMoreOptions && (
         <div className="mb-6 space-y-5 rounded-[var(--radius)] p-4 border" style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}>
           <Field
             label={`מרווח אנכי (${config.verticalSpacingCm.toFixed(1)} ס״מ)`}
             hint="כמה גבוה תוצג התמונה על העמוד. התמונה שומרת על יחס הממדים שלה ותמורכז - לא תימתח."
+            info="הגובה של התמונה המקופלת עצמה. למשל בדף של 22 ס״מ ומרווח של 14.5 ס״מ - התמונה תתפוס 14.5 ס״מ באמצע הדף, עם שוליים שווים למעלה ולמטה."
           >
             <input
               type="range"
@@ -453,6 +457,7 @@ export default function ConfigPanel() {
                 onChange={(e) => setConfig({ cropSides: e.target.checked })}
               />
               חיתוך שולי התמונה
+              <InfoTip text="מסיר שוליים לבנים מימין ומשמאל לתמונה, כך שכל הדפים מנוצלים לציור עצמו ולא מתבזבזים על רקע ריק." />
             </label>
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input
@@ -461,29 +466,14 @@ export default function ConfigPanel() {
                 onChange={(e) => setConfig({ autoThreshold: e.target.checked })}
               />
               סף שחור/לבן אוטומטי
+              <InfoTip text="המערכת מחליטה לבד מה נחשב 'שחור' ומה 'לבן' לפי התמונה שלכם. שימושי לתמונות בגווני אפור או לסריקות. בתמונה נקייה בשחור-לבן אין צורך." />
             </label>
           </div>
-
-          <Field label="דיוק" hint="רזולוציית העיגול של המדידות.">
-            <select
-              className={inputClass}
-              style={inputStyle}
-              value={config.precisionMm}
-              onChange={(e) =>
-                setConfig({ precisionMm: parseFloat(e.target.value) })
-              }
-            >
-              {PRECISION_OPTIONS.map((opt) => (
-                <option key={opt.mm} value={opt.mm}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </Field>
 
           <Field
             label={`גודל לשונית מינימלי (${config.minTabSizeMm.toFixed(1)} מ״מ)`}
             hint="לגזירה וקיפול בלבד — מתעלם מגזירות דקות מערך זה."
+            info="רצועת נייר צרה מדי קשה לגזור ולקפל ונקרעת בקלות. כל קטע שחור דק מהערך הזה מושמט מהתבנית."
           >
             <input
               type="range"
@@ -539,6 +529,9 @@ export default function ConfigPanel() {
         >
           {busy3D ? "מכין תצוגה…" : "תצוגת 3D"}
         </button>
+        <span className="self-center">
+          <InfoTip text="צפו איך הספר ייראה אחרי הקיפול, לפני שיוצרים את התבנית. חינם ולא דורש התחברות." align="end" />
+        </span>
 
         {pattern && user && (
           <button

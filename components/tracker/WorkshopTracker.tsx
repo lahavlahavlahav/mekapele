@@ -7,6 +7,7 @@ import ProgressBar from "./ProgressBar";
 import ImagePreview from "./ImagePreview";
 import PageJump from "./PageJump";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
+import InfoTip from "../ui/InfoTip";
 
 /**
  * Mode 2 — Interactive Digital Tracker.
@@ -78,7 +79,10 @@ export default function WorkshopTracker() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-7 w-auto" />
           <div className="leading-tight">
-            <p className="eyebrow">מצב סדנה</p>
+            <p className="eyebrow flex items-center gap-1.5">
+              מצב סדנה
+              <InfoTip text="מסך העבודה בזמן הקיפול: בכל רגע מוצג דף אחד עם המידות שלו. מקפלים, לוחצים 'קיפלתי' ועוברים לדף הבא. ההתקדמות נשמרת אוטומטית גם אם סוגרים את הדפדפן." />
+            </p>
             <p className="text-sm font-semibold">
               עמודים {pattern.config.firstPage}–{pattern.config.lastPage} ·{" "}
               {pattern.pages.length} עלים · {pattern.config.direction} ·{" "}
@@ -86,7 +90,21 @@ export default function WorkshopTracker() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <InfoTip
+            align="end"
+            text={
+              <>
+                <b>ייצוא טבלה</b> - קובץ PDF עם המידות בס״מ לכל עמוד.
+                <br />
+                <b>ייצוא מפת קיפולים</b> - PDF ויזואלי: שורה לכל דף ופס שחור במקום הקיפול. הקו המודגש מימין מסמן את הקצה העליון של הדף.
+                <br />
+                <b>תצוגת הדפסה</b> - אותן טבלה ומפה על המסך, להדפסה ישירה.
+                <br />
+                <b>הגדרות</b> - חזרה לשינוי הפרמטרים (בלי לב נוסף לאותה תמונה).
+              </>
+            }
+          />
           <button
             onClick={() => exportPatternPdf(pattern, "תבנית", "table")}
             className="text-sm px-3 py-1.5 rounded-lg border"
@@ -138,8 +156,13 @@ export default function WorkshopTracker() {
             verticalSpacingCm={pattern.config.verticalSpacingCm}
             precisionMm={pattern.config.precisionMm}
             pages={pattern.pages}
+            pattern={pattern}
             onSelectPage={goToPage}
           />
+          <p className="no-print mt-2 flex items-center gap-1.5 text-xs text-[var(--ink-soft)]">
+            לחצו על התמונה כדי לקפוץ לדף
+            <InfoTip text="כל פס אנכי בתמונה הוא דף אחד בספר. הדף המסומן במסגרת זהב הוא הדף הנוכחי, ודפים שכבר קיפלתם נצבעים. לחיצה על נקודה בתמונה עוברת לדף הזה ומראה את המרחק בס״מ מהקצה העליון." />
+          </p>
         </section>
 
         {/* Side panel: measurements for whichever leaf is selected + progress. */}
@@ -165,12 +188,18 @@ export default function WorkshopTracker() {
               >
                 איפוס התקדמות
               </button>
-              <button
-                onClick={goToRandomPage}
-                className="text-sm text-[var(--ink-soft)] underline underline-offset-2"
-              >
-                עמוד אקראי
-              </button>
+              <span className="flex items-center gap-1.5">
+                <button
+                  onClick={goToRandomPage}
+                  className="text-sm text-[var(--ink-soft)] underline underline-offset-2"
+                >
+                  עמוד אקראי
+                </button>
+                <InfoTip
+                  align="end"
+                  text="קופץ לדף אקראי - שימושי לבדיקת דיוק: בודקים דף שכבר קיפלתם מול המידות. 'איפוס התקדמות' מוחק את כל סימוני 'קיפלתי' (התבנית עצמה לא משתנה)."
+                />
+              </span>
             </div>
           </div>
         </aside>

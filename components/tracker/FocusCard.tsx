@@ -1,6 +1,7 @@
 "use client";
 
 import type { FoldingMode, PageMeasurement } from "@/lib/types";
+import InfoTip from "../ui/InfoTip";
 
 interface FocusCardProps {
   measurement: PageMeasurement;
@@ -51,8 +52,15 @@ export default function FocusCard({
         {isFolded ? "✓ קיפלתי" : "קיפלתי"}
       </button>
 
-      <p className="eyebrow" style={{ color: "rgba(246,241,231,0.6)" }}>
+      <p className="eyebrow inline-flex items-center gap-1.5" style={{ color: "rgba(246,241,231,0.6)" }}>
         מקפלים עכשיו
+        <InfoTip
+          text={
+            mode === "MMF"
+              ? "המספר הגדול הוא מספר העמוד בספר. 'עליון' ו'תחתון' הם המרחק בס״מ מהקצה העליון של הדף: מסמנים את שתי הנקודות בעיפרון ומקפלים את הפינות פנימה בדיוק בסימונים."
+              : "המספר הגדול הוא מספר העמוד בספר. כל זוג 'גזירה מ- / עד' הוא קטע בס״מ מהקצה העליון של הדף: גוזרים בכל סימון ומקפלים את הלשוניות לסירוגין."
+          }
+        />
       </p>
       <div className="mt-1 flex items-baseline justify-center gap-3">
         <span className="font-display text-7xl sm:text-8xl text-[var(--paper)] tabular leading-none">
@@ -65,7 +73,7 @@ export default function FocusCard({
 
       {isBlank ? (
         <p className="mt-6 text-xl text-[rgba(246,241,231,0.8)]">
-          אין קיפול בעלה זה — דפדפו הלאה.
+          אין סימונים בדף זה — דלג.
         </p>
       ) : (
         <div className="mt-6 space-y-3">

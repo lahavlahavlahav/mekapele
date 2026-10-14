@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import {
   cmToPixelY,
-  orderColumnsByDirection,
+  leafSourceBounds,
   pixelYToCm,
-  sampleColumnBounds,
 } from "@/lib/algorithm";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
+import InfoTip from "../ui/InfoTip";
 import type { FoldingPattern } from "@/lib/types";
 
 type ViewMode = "single" | "table";
@@ -69,25 +69,14 @@ export default function GridEditor() {
 
   useEffect(() => setLeafInput(String(currentLeaf)), [currentLeaf]);
 
-  // Same crop-bounds rescaling as before: the algorithm's working grid and the
-  // thumbnail are independently downscaled from the same source, so a single
-  // uniform ratio bridges grid-pixel space to thumbnail-pixel space.
-  const cropBounds =
-    pattern && imgSize && pattern.imageWidth > 0
-      ? (() => {
-          const scale = imgSize.width / pattern.imageWidth;
-          const cropStartX = pattern.cropStartX ?? 0;
-          const cropWidth = pattern.cropWidth ?? pattern.imageWidth;
-          return { cropStartXThumb: cropStartX * scale, cropWidthThumb: cropWidth * scale };
-        })()
-      : null;
-
+  // Same exact per-leaf column the algorithm measured (crop + trimmed ends +
+  // direction), rescaled to the displayed image.
   const leafColumnBounds = useMemo(() => {
-    if (!cropBounds || totalLeaves === 0) return null;
-    const order = orderColumnsByDirection(totalLeaves, config.direction);
-    const col = order[currentLeaf - 1];
-    return sampleColumnBounds(cropBounds.cropWidthThumb, totalLeaves, col, cropBounds.cropStartXThumb);
-  }, [cropBounds, totalLeaves, config.direction, currentLeaf]);
+    if (!pattern || !imgSize || pattern.imageWidth <= 0 || totalLeaves === 0) return null;
+    const scale = imgSize.width / pattern.imageWidth;
+    const b = leafSourceBounds(pattern, currentLeaf - 1);
+    return { startX: Math.floor(b.startX * scale), endX: Math.ceil((b.endX + 1) * scale) - 1 };
+  }, [pattern, imgSize, totalLeaves, currentLeaf]);
 
   const page = pattern?.pages[currentLeaf - 1] ?? null;
   const marksCm = page?.marksCm ?? [];
@@ -196,7 +185,10 @@ export default function GridEditor() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-7 w-auto" />
           <div className="leading-tight">
-            <p className="eyebrow">עריכת סימונים ידנית</p>
+            <p className="eyebrow flex items-center gap-1.5">
+              עריכת סימונים ידנית
+              <InfoTip text="כאן אפשר לתקן ידנית את המידות של כל דף: לשנות מספר, למחוק סימון או להוסיף חדש. 'איפוס עמוד' מחזיר את הדף למידות שהמערכת חישבה במקור." />
+            </p>
             <p className="text-sm font-semibold">
               {totalLeaves} עלים · {config.direction} ·{" "}
               {config.mode === "MMF" ? "סימון וקיפול" : "גזירה וקיפול"}

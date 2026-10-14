@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PageMeasurement, ReadingDirection } from "@/lib/types";
-import { orderColumnsByDirection, sampleColumnBounds, pixelYToCm } from "@/lib/algorithm";
+import type { FoldingPattern, PageMeasurement, ReadingDirection } from "@/lib/types";
+import { leafSourceBounds, pixelYToCm } from "@/lib/algorithm";
 
 interface ImagePreviewProps {
   thumbnail: string | null;
@@ -15,6 +15,8 @@ interface ImagePreviewProps {
   precisionMm: number;
   /** So a click can be checked against that leaf's actual mark bands - a blank height in the image should never report a mark. */
   pages: PageMeasurement[];
+  /** Source of each leaf's exact image column (crop, trimmed ends, direction). */
+  pattern: FoldingPattern;
   /** Jumps the tracker to the clicked leaf, so the measurements panel updates immediately. */
   onSelectPage: (page: number) => void;
 }
@@ -81,8 +83,17 @@ export default function ImagePreview({
   verticalSpacingCm,
   precisionMm,
   pages,
+  pattern,
   onSelectPage,
 }: ImagePreviewProps) {
+  // Leaf `page` (1-based) -> its pixel band on a canvas `imgW` wide. Shares
+  // leafSourceBounds with the algorithm, so each strip shows exactly the
+  // pixels that leaf's measurements came from.
+  const boundsFor = (page: number, imgW: number) => {
+    const scale = pattern.imageWidth > 0 ? imgW / pattern.imageWidth : 1;
+    const b = leafSourceBounds(pattern, page - 1);
+    return { startX: b.startX * scale, endX: (b.endX + 1) * scale - 1 };
+  };
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [clickInfo, setClickInfo] = useState<ClickInfo | null>(null);
 
@@ -106,11 +117,22 @@ export default function ImagePreview({
       }
 
       const foldedSet = new Set(foldedPages);
-      const colOrder = orderColumnsByDirection(totalLeaves, direction);
+
+      // Grey out image area no leaf covers (cropped side margins / trimmed
+      // blank ends), so every visible strip is a real page.
+      let minX = imgW;
+      let maxX = 0;
+      for (let page = 1; page <= totalLeaves; page++) {
+        const { startX, endX } = boundsFor(page, imgW);
+        minX = Math.min(minX, startX);
+        maxX = Math.max(maxX, endX + 1);
+      }
+      ctx.fillStyle = "rgba(120,120,120,0.35)";
+      if (minX > 0) ctx.fillRect(0, 0, minX, imgH);
+      if (maxX < imgW) ctx.fillRect(maxX, 0, imgW - maxX, imgH);
 
       for (let page = 1; page <= totalLeaves; page++) {
-        const col = colOrder[page - 1];
-        const { startX, endX } = sampleColumnBounds(imgW, totalLeaves, col);
+        const { startX, endX } = boundsFor(page, imgW);
         const w = endX - startX + 1;
         const centerX = startX + w / 2;
 
@@ -151,6 +173,11 @@ export default function ImagePreview({
         ctx.lineTo(startX, imgH);
         ctx.stroke();
       }
+      // Closing divider after the last strip.
+      ctx.beginPath();
+      ctx.moveTo(maxX, 0);
+      ctx.lineTo(maxX, imgH);
+      ctx.stroke();
       ctx.globalAlpha = 1;
     };
 
@@ -161,7 +188,8 @@ export default function ImagePreview({
     } else {
       draw(400, 280);
     }
-  }, [thumbnail, totalLeaves, currentPage, foldedPages, direction]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thumbnail, totalLeaves, currentPage, foldedPages, direction, pattern]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = e.currentTarget;
@@ -172,16 +200,16 @@ export default function ImagePreview({
     const nativeX = ((e.clientX - rect.left) / rect.width) * canvas.width;
     const nativeY = ((e.clientY - rect.top) / rect.height) * canvas.height;
 
-    const colOrder = orderColumnsByDirection(totalLeaves, direction);
-    let page = totalLeaves;
+    let page: number | null = null;
     for (let p = 1; p <= totalLeaves; p++) {
-      const col = colOrder[p - 1];
-      const { startX, endX } = sampleColumnBounds(canvas.width, totalLeaves, col);
-      if (nativeX >= startX && nativeX <= endX) {
+      const { startX, endX } = boundsFor(p, canvas.width);
+      if (nativeX >= startX && nativeX < endX + 1) {
         page = p;
         break;
       }
     }
+    // Clicked the greyed-out margin outside every page - nothing to select.
+    if (page === null) return;
 
     const cm = pixelYToCm(nativeY, canvas.height, verticalSpacingCm, pageHeightCm, precisionMm);
     const onMark = heightHasMark(pages[page - 1]?.marksCm ?? [], cm);

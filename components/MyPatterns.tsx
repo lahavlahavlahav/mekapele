@@ -16,6 +16,7 @@ import {
   type SavedPattern,
 } from "@/lib/firestore/patterns";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
+import InfoTip from "./ui/InfoTip";
 import { LoginGate, UserBadge } from "./LoginGate";
 import HeartsBadge from "./hearts/HeartsBadge";
 import Footer from "./Footer";
@@ -153,7 +154,10 @@ export default function MyPatterns() {
                       · {new Date(sp.createdAt).toLocaleDateString("he-IL")}
                     </p>
                   </div>
-                  <span className="font-display tabular text-xl">{pct}%</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-display tabular text-xl">{pct}%</span>
+                    <InfoTip align="end" text="אחוז הדפים שסימנתם כ'קיפלתי'. 'מצב סדנה' ממשיך בדיוק מהמקום שעצרתם. 'ייצוא PDF' מוריד את טבלת המידות." />
+                  </span>
                 </div>
 
                 <div

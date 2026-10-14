@@ -133,6 +133,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Measurement precision is fixed at 1mm (no longer a user setting).
+  config.precisionMm = 1;
+
   // Make sure the user doc exists (first-time login), then meter the action.
   await ensureUserProfile(user.uid, user.email);
 

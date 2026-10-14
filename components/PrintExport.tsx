@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import FoldMapChart from "./tracker/FoldMapChart";
+import InfoTip from "./ui/InfoTip";
 
 /** Mode 1 — Print-Ready Export: branded table, or a visual fold-map chart. */
 export default function PrintExport() {
@@ -39,6 +40,10 @@ export default function PrintExport() {
           → חזרה למעקב
         </button>
         <div className="flex items-center gap-3">
+          <InfoTip
+            align="end"
+            text="טבלה: המידות בס״מ לכל עמוד. מפת קיפולים: אותו מידע כציור - שורה לכל דף, הפס השחור מראה איפה לקפל, והקו המודגש מימין הוא הקצה העליון של הדף. במפה התמונה זהה בספר בעברית ובאנגלית - רק מספרי העמודים משתנים."
+          />
           <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: "var(--line)" }}>
             <button
               onClick={() => setLayout("table")}
@@ -145,7 +150,7 @@ export default function PrintExport() {
           </table>
         </div>
       ) : (
-        <FoldMapChart pages={pages} pageHeightCm={config.pageHeightCm} />
+        <FoldMapChart pages={pages} pageHeightCm={config.pageHeightCm} direction={config.direction} />
       )}
     </div>
   );

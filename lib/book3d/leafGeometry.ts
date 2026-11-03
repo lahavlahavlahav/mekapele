@@ -26,7 +26,7 @@ export interface LeafShapeParams {
   pageHeightCm: number;
   foldedDepth: number; // how far a folded-under (blank) region extends from the spine
   fullDepth: number; // how far a region within a fold-mark band extends (full page depth)
-  /** MMF gets a diagonal fold-crease bevel at each transition (see buildLeafShape); Cut & Fold keeps a sharp edge, since that one's genuinely cut. */
+  /** MMF gets a diagonal fold-crease bevel at each transition (see buildLeafShape); Cut & Fold keeps a sharp edge, since that one's genuinely cut. PAINT leaves aren't folded at all - use buildFlatLeafShape + buildPaintShapes instead. */
   mode?: FoldingMode;
 }
 
@@ -117,6 +117,33 @@ export function buildLeafShape(
   shape.lineTo(0, 0);
   shape.closePath();
   return shape;
+}
+
+/**
+ * PAINT mode: one rectangle per marked band, hugging the leaf's outer edge
+ * (depth fullDepth - stripDepth .. fullDepth). Extruded slightly thicker than
+ * the leaf itself, it reads as paint covering the fore-edge and wrapping a
+ * little onto both faces - the leaf underneath stays a full, unfolded page.
+ * Empty for a blank leaf.
+ */
+export function buildPaintShapes(
+  page: PageMeasurement,
+  pageHeightCm: number,
+  fullDepth: number,
+  stripDepth: number
+): THREE.Shape[] {
+  if (page.isBlank) return [];
+  return pairUp(page.marksCm).map(([topCm, bottomCm]) => {
+    const low = Math.max(0, pageHeightCm - bottomCm);
+    const high = Math.min(pageHeightCm, pageHeightCm - topCm);
+    const shape = new THREE.Shape();
+    shape.moveTo(fullDepth - stripDepth, low);
+    shape.lineTo(fullDepth, low);
+    shape.lineTo(fullDepth, high);
+    shape.lineTo(fullDepth - stripDepth, high);
+    shape.closePath();
+    return shape;
+  });
 }
 
 /** A plain full-depth rectangle - used for the front/back covers. */

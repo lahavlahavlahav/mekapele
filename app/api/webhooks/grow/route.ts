@@ -2,17 +2,17 @@
 // POST /api/webhooks/grow  — Grow (Meshulam) payment notification
 // -----------------------------------------------------------------------------
 // Single responsibility: receive Grow's payment notification, and — once and
-// only once per growProcessId — update Firestore (credit hearts, record the
-// transaction). create-checkout never writes to Firestore (it asks a
+// only once per growProcessId — update Firestore (extend the buyer's monthly
+// subscription, record the transaction). create-checkout never writes to Firestore (it asks a
 // Make.com scenario to create the payment page — see lib/payment/make.ts),
 // so everything the user bought comes from THIS payload's customFields
-// (cField1 = userId, cField2 = heartsToAdd, cField3 = packageId) — assuming
+// (cField1 = userId, cField2 = days bought, cField3 = plan id) — assuming
 // the Make scenario set those custom fields when creating the page (check
 // this when you build it; without them this webhook can't tell who paid).
 //
 // Checkout doesn't require being signed in — cField1 (userId) is empty for a
 // guest purchase, so we fall back to the buyer's email (a standard field
-// Grow returns, not a custom one) and park the hearts in pendingCredits,
+// Grow returns, not a custom one) and park the days in pendingCredits,
 // claimed automatically the next time someone signs in with that email
 // (see claimPendingCredits in lib/firestore/projects.ts).
 //
@@ -28,7 +28,7 @@
 // Idempotency: recordCompletedPayment (lib/firestore/transactions.ts) uses
 // growProcessId as the Firestore document id inside a transaction, so a
 // duplicate delivery of the same event is a guaranteed no-op — it can never
-// credit hearts twice.
+// extend a subscription twice.
 //
 // ⚠️ Not live-tested against a real Grow account. Confirm the payload shape
 // (JSON vs form-encoded, exact field names/nesting, whether customFields
@@ -40,6 +40,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { recordCompletedPayment } from "@/lib/firestore/transactions";
+import { MONTHLY_PLAN } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
@@ -100,35 +101,38 @@ export async function POST(req: NextRequest) {
   const customFields =
     (data.customFields as Record<string, unknown> | undefined) ?? {};
   const userId = String(customFields.cField1 ?? "");
-  const heartsAdded = Number(customFields.cField2 ?? 0);
-  const packageId = String(customFields.cField3 ?? "");
+  const planId = String(customFields.cField3 ?? "");
+  // A payment page created before the switch to the monthly plan carries an
+  // old heart-package id here - honour it as one month rather than dropping it.
+  const daysAdded =
+    planId === MONTHLY_PLAN.id ? Number(customFields.cField2 ?? 0) : MONTHLY_PLAN.days;
   const amount = Number(data.sum ?? 0);
   // Guest checkout has no userId — fall back to the buyer's email (passed
-  // through by Make/Grow as a standard field, not a custom one) so hearts
+  // through by Make/Grow as a standard field, not a custom one) so the days
   // can still be parked in pendingCredits and claimed on next sign-in.
   const email = String(data.email ?? data.customerEmail ?? "").trim().toLowerCase();
 
   if (
     !growProcessId ||
     (!userId && !email) ||
-    !Number.isFinite(heartsAdded) ||
-    heartsAdded <= 0
+    !Number.isFinite(daysAdded) ||
+    daysAdded <= 0
   ) {
-    console.error("Grow webhook: malformed payload", { growProcessId, userId, email, heartsAdded });
+    console.error("Grow webhook: malformed payload", { growProcessId, userId, email, daysAdded });
     return NextResponse.json({ error: "Malformed payload." }, { status: 400 });
   }
 
   const { record, granted } = await recordCompletedPayment(growProcessId, {
     userId,
     email,
-    packageId,
-    heartsAdded,
+    planId,
+    daysAdded,
     amount,
   });
 
   if (granted) {
     console.log(
-      `Grow webhook: credited ${record.heartsAdded} hearts to ${record.userId || `pending:${record.email}`} (process ${growProcessId})`
+      `Grow webhook: added ${record.daysAdded} subscription days to ${record.userId || `pending:${record.email}`} (process ${growProcessId})`
     );
   }
 

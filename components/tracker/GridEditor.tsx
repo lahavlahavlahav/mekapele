@@ -9,7 +9,7 @@ import {
 } from "@/lib/algorithm";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 import InfoTip from "../ui/InfoTip";
-import type { FoldingPattern } from "@/lib/types";
+import { MODE_LABEL, type FoldingPattern } from "@/lib/types";
 
 type ViewMode = "single" | "table";
 
@@ -191,7 +191,7 @@ export default function GridEditor() {
             </p>
             <p className="text-sm font-semibold">
               {totalLeaves} עלים · {config.direction} ·{" "}
-              {config.mode === "MMF" ? "סימון וקיפול" : "גזירה וקיפול"}
+              {MODE_LABEL[config.mode]}
             </p>
           </div>
         </div>

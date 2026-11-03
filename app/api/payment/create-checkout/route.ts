@@ -8,11 +8,11 @@
 //
 // Signing in is NOT required to check out — purchase should never be
 // blocked on auth working. If the request carries a valid Firebase ID
-// token, hearts go straight to that uid (still never trusted from the
+// token, the subscription goes straight to that uid (still never trusted from the
 // request body — always the verified token). Otherwise this is a guest
 // checkout: the buyer's email (typed into the purchase form, required in
 // that case) identifies them, and lib/firestore/projects.ts's
-// claimPendingCredits hands the hearts over automatically the first time
+// claimPendingCredits applies the paid days automatically the first time
 // someone signs in with that same email.
 // =============================================================================
 
@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth/verifyAuth";
 import { hit } from "@/lib/security/rateLimit";
 import { corsHeaders, isOriginAllowed } from "@/lib/security/cors";
-import { applyDiscount, getDiscountCode, getHeartPackage } from "@/lib/pricing";
+import { applyDiscount, getDiscountCode, getPlan } from "@/lib/pricing";
 import { createPaymentLink } from "@/lib/payment/make";
 
 export const runtime = "nodejs";
@@ -47,14 +47,14 @@ export async function POST(req: NextRequest) {
   // not (or verification fails), this is a guest checkout — not rejected.
   const authedUser = await verifyAuth(req);
 
-  let packageId: string;
+  let planId: string;
   let fullName: string;
   let phone: string;
   let email: string;
   let couponCode: string;
   try {
     const body = await req.json();
-    packageId = String(body.packageId ?? "");
+    planId = String(body.planId ?? body.packageId ?? "");
     fullName = String(body.fullName ?? "").trim();
     phone = String(body.phone ?? "").trim();
     email = String(body.email ?? "").trim().toLowerCase();
@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const pkg = getHeartPackage(packageId);
-  if (!pkg) {
+  const plan = getPlan(planId);
+  if (!plan) {
     return NextResponse.json(
-      { error: "Unknown package." },
+      { error: "Unknown plan." },
       { status: 400, headers: cors }
     );
   }
@@ -106,22 +106,22 @@ export async function POST(req: NextRequest) {
   // charged always comes from re-validating the code here, never from
   // anything the client claims the price already is.
   const discount = getDiscountCode(couponCode);
-  const sum = applyDiscount(pkg.priceIls, discount);
+  const sum = applyDiscount(plan.priceIls, discount);
 
   try {
     const { paymentUrl } = await createPaymentLink({
       sum,
       description: discount
-        ? `${pkg.label} — Mekapele (${discount.code} -${discount.percentOff}%)`
-        : `${pkg.label} — Mekapele`,
+        ? `${plan.label} — Mekapele (${discount.code} -${discount.percentOff}%)`
+        : `${plan.label} — Mekapele`,
       successUrl: `${siteOrigin}/?purchase=success`,
       cancelUrl: `${siteOrigin}/?purchase=cancelled`,
       email: buyerEmail,
       fullName,
       phone,
       userId: authedUser?.uid ?? "",
-      packageId: pkg.id,
-      heartsAdded: String(pkg.hearts),
+      packageId: plan.id,
+      heartsAdded: String(plan.days),
     });
 
     return NextResponse.json({ paymentUrl }, { status: 200, headers: cors });

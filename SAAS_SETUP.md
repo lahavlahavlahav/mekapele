@@ -1,4 +1,4 @@
-# הגדרת SaaS — Firebase, לבבות ותשלומים (Grow דרך Make.com)
+# הגדרת SaaS — Firebase, מנוי חודשי ותשלומים (Grow דרך Make.com)
 
 המסמך הזה מסביר מה צריך להגדיר כדי שהאתר יעבוד עם התחברות, מסד נתונים ותשלומים אמיתיים.
 **הקוד כולו כתוב ומוכן — חסר רק לחבר מפתחות משלכם.**
@@ -37,8 +37,9 @@ Project settings → **Service accounts** → "Generate new private key" → י�
      (`description`) שהתקבלו מה-webhook. **חשוב**: לבדוק אם המודול הזה חושף
      שדות מותאמים אישית (custom fields / cField1-3) — אם כן, למפות
      `userId`→cField1, `heartsAdded`→cField2, `packageId`→cField3 (בדיוק
-     כמו שהגיעו מה-webhook). בלי זה, ה-webhook הסופי מ-Grow לא ידע למי/כמה
-     לבבות לזכות.
+     כמו שהגיעו מה-webhook). בלי זה, ה-webhook הסופי מ-Grow לא ידע למי
+     להפעיל את המנוי. (השם `heartsAdded` נשאר מהמודל הקודם כדי לא לשבור את
+     המיפוי - היום הוא מכיל את מספר ימי המנוי, 30, ו-`packageId` הוא `monthly`.)
    - **Module אחרון**: "Webhooks" → "Webhook response" → מחזירים JSON:
      `{ "paymentUrl": <ה-URL של דף התשלום שנוצר> }`.
 3. מפעילים את התרחיש (Scheduling → On), ומעתיקים את ה-webhook URL מהשלב 1
@@ -76,24 +77,20 @@ Project settings → **Service accounts** → "Generate new private key" → י�
 לכתיבה מהלקוח** (רק Admin SDK), ואוסף `transactions` ניתן לקריאה בלבד לבעל הרשומה
 ואף פעם לא לכתיבה מהלקוח.
 
-## 7. מודל הלבבות
-- משתמש חדש מתחיל עם **0 לבבות** (`users/{userId}.hearts`, ב-`ensureUserProfile`).
-- כל בקשת יצירה מחשבת את מספר הקיפולים בפועל בשרת (`app/api/generate`):
-  עד 500 קיפולים = תבנית פשוטה = לב 1; מעל 500 = תבנית מורכבת = 2 לבבות.
-  החיוב אטומי (טרנזקציית Firestore) ומבוסס על המספר האמיתי שהשרת חישב — לא על
-  מה שהלקוח טוען.
-- חבילות רכישה (`lib/pricing.ts`): 1 לב = ₪19, 5 לבבות = ₪75 (הכי משתלם),
-  10 לבבות = ₪150.
-- זרימת תשלום, מופרדת לשני קבצים באחריות ברורה:
-  - `POST /api/payment/create-checkout` — אחראי **רק** על הבקשה לתרחיש
-    Make.com (`lib/payment/make.ts`) והחזרת ה-URL ללקוח. לא נוגע ב-Firestore
-    בכלל.
-  - `POST /api/webhooks/grow` — אחראי על אימות ה-`webhookKey`, קבלת ה-webhook
-    **ישירות מ-Grow**, בדיקת ה-idempotency, ויצירת/עדכון ה-Firestore. כשתשלום
-    מאושר, הוא יוצר את `transactions/{growProcessId}` (עם ה-id של תהליך
-    התשלום מ-Grow עצמו כמזהה המסמך) ומזרים לבבות אטומית
-    (`FieldValue.increment`) — הכל באותה טרנזקציית Firestore, כך שאם Grow
-    שולח את אותו webhook פעמיים, הכתיבה השנייה היא no-op ולא תזכה פעמיים.
+## 7. מודל המנוי
+- מנוי חודשי אחד (`lib/pricing.ts` → `MONTHLY_PLAN`): ₪50 ל-30 יום, תבניות ללא
+  הגבלה. תשלום חד-פעמי, בלי הוראת קבע.
+- הסטטוס נשמר ב-`subscriptions/{uid}.activeUntil` (epoch ms). האוסף הזה חסום
+  לגמרי מהדפדפן (default deny) — רק השרת כותב/קורא, והדפדפן מקבל את הסטטוס
+  מ-`GET /api/subscription`.
+- `POST /api/generate` בודק שיש מנוי פעיל ומחזיר 402 (`SUBSCRIPTION_REQUIRED`)
+  אם אין.
+- רכישה: `create-checkout` שולח ל-Make סכום (אחרי קופון) + `heartsAdded`=30 +
+  `packageId`=`monthly`. ה-webhook מ-Grow מאריך את המנוי אטומית: מסוף המנוי
+  הנוכחי אם הוא עדיין פעיל, אחרת מעכשיו. רכישה בלי התחברות נשמרת
+  ב-`pendingCredits` (עם `daysAdded`) ומופעלת בהתחברות הבאה עם אותו אימייל.
+- `growProcessId` הוא מזהה מסמך העסקה, כך ש-webhook כפול לא מאריך פעמיים.
+- חשבון הבעלים (lahavbarak430@gmail.com) תמיד מנוי פעיל, לבדיקות.
 
 ## הערה חשובה
 לא יכולתי לבדוק את נתיב ה-Firebase, ה-Make.com או ה-Grow החי מהסביבה שלי כי

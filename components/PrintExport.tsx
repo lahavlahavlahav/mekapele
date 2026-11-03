@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import FoldMapChart from "./tracker/FoldMapChart";
 import InfoTip from "./ui/InfoTip";
+import { DEFAULT_PAINT_COLOR } from "@/lib/types";
 
 /** Mode 1 — Print-Ready Export: branded table, or a visual fold-map chart. */
 export default function PrintExport() {
@@ -25,7 +26,7 @@ export default function PrintExport() {
         i % 2 === 0 ? `קו ${i / 2 + 1} - עליון` : `קו ${Math.floor(i / 2) + 1} - תחתון`
       )]
     : ["עלה", "עמוד", ...Array.from({ length: maxMarks }, (_, i) =>
-        i % 2 === 0 ? `גזירה ${i / 2 + 1} מ-` : `עד`
+        i % 2 === 0 ? `${config.mode === "PAINT" ? "צביעה" : "גזירה"} ${i / 2 + 1} מ-` : `עד`
       )];
 
   return (
@@ -91,7 +92,15 @@ export default function PrintExport() {
               ? (config.mmfLines ?? 1) > 1
                 ? `סימון וקיפול (${config.mmfLines} קווים)`
                 : "סימון וקיפול"
+              : config.mode === "PAINT"
+              ? "צביעה"
               : `גזירה וקיפול (לשונית מינ׳ ${config.minTabSizeMm} מ״מ)`}{" "}
+            {config.mode === "PAINT" && (
+              <span
+                className="inline-block w-3 h-3 rounded-sm align-middle border"
+                style={{ background: config.paintColor || DEFAULT_PAINT_COLOR, borderColor: "var(--line)" }}
+              />
+            )}{" "}
             · {config.direction}
           </p>
         </div>
@@ -150,7 +159,12 @@ export default function PrintExport() {
           </table>
         </div>
       ) : (
-        <FoldMapChart pages={pages} pageHeightCm={config.pageHeightCm} direction={config.direction} />
+        <FoldMapChart
+          pages={pages}
+          pageHeightCm={config.pageHeightCm}
+          direction={config.direction}
+          barColor={config.mode === "PAINT" ? config.paintColor || DEFAULT_PAINT_COLOR : undefined}
+        />
       )}
     </div>
   );

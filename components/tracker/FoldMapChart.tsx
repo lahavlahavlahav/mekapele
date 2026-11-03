@@ -26,10 +26,13 @@ export default function FoldMapChart({
   pages,
   pageHeightCm,
   direction,
+  barColor = "var(--ink)",
 }: {
   pages: PageMeasurement[];
   pageHeightCm: number;
   direction: ReadingDirection;
+  /** Bar fill - PAINT patterns pass their paint color so the map previews the painted book. */
+  barColor?: string;
 }) {
   const rows = foldMapRows(pages, direction);
   const chunks: PageMeasurement[][] = [];
@@ -65,7 +68,7 @@ export default function FoldMapChart({
                           y={y - BAR_HEIGHT / 2}
                           width={Math.max(1, x2 - x1)}
                           height={BAR_HEIGHT}
-                          fill="var(--ink)"
+                          fill={barColor}
                         />
                       );
                     })}

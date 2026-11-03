@@ -61,9 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // it's the same account that was last active here.
         useStore.getState().syncUser(u?.uid ?? null);
         if (u) {
-          // Fire-and-forget: claims any guest-checkout hearts bought under
-          // this email before this sign-in. Firestore's own onSnapshot
-          // listener (useHearts) picks up the credited balance automatically.
+          // Fire-and-forget: claims any guest-checkout subscription bought
+          // under this email before this sign-in.
           u.getIdToken()
             .then((token) =>
               fetch("/api/auth/sync", {

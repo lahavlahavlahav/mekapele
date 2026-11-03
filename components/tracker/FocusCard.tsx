@@ -15,7 +15,7 @@ interface FocusCardProps {
 /**
  * Focus Mode: the single page being folded right now, in large, glanceable
  * typography. MMF shows one top/bottom mark pair per fold line (2-3 for
- * Multiline MMF); Cut & Fold shows cut pairs.
+ * Multiline MMF); Cut & Fold shows cut pairs; PAINT shows painted bands.
  */
 export default function FocusCard({
   measurement,
@@ -58,6 +58,8 @@ export default function FocusCard({
           text={
             mode === "MMF"
               ? "המספר הגדול הוא מספר העמוד בספר. 'עליון' ו'תחתון' הם המרחק בס״מ מהקצה העליון של הדף: מסמנים את שתי הנקודות בעיפרון ומקפלים את הפינות פנימה בדיוק בסימונים."
+              : mode === "PAINT"
+              ? "המספר הגדול הוא מספר העמוד בספר. כל זוג 'צביעה מ- / עד' הוא קטע בס״מ מהקצה העליון של הדף: מסמנים את שתי הנקודות וצובעים את קצה הדף ביניהן בצבע שבחרתם."
               : "המספר הגדול הוא מספר העמוד בספר. כל זוג 'גזירה מ- / עד' הוא קטע בס״מ מהקצה העליון של הדף: גוזרים בכל סימון ומקפלים את הלשוניות לסירוגין."
           }
         />
@@ -87,11 +89,11 @@ export default function FocusCard({
                   {mode === "MMF" ? `קו ${i + 1}` : i + 1}
                 </span>
               )}
-              <Mark label={mode === "MMF" ? "עליון" : "גזירה מ-"} value={a} />
+              <Mark label={mode === "MMF" ? "עליון" : mode === "PAINT" ? "צביעה מ-" : "גזירה מ-"} value={a} />
               {b !== null && (
                 <>
                   <span className="text-[var(--coral)] text-2xl">→</span>
-                  <Mark label={mode === "MMF" ? "תחתון" : "גזירה עד"} value={b} />
+                  <Mark label={mode === "MMF" ? "תחתון" : mode === "PAINT" ? "צביעה עד" : "גזירה עד"} value={b} />
                 </>
               )}
             </div>

@@ -6,13 +6,10 @@
 //   2. Rate limit (per uid / IP)
 //   3. Auth: verify Firebase ID token  → 401 if missing/invalid
 //   4. Upload validation: MIME + size + magic bytes  → 400 if bad
-//   5. Run the real algorithm with sharp to get the AUTHORITATIVE fold count
-//   6. Consume the required hearts for that complexity (atomic) → 402 if short
+//   5. Active monthly subscription required  → 402 if none
+//   6. Run the real algorithm with sharp and return the pattern
 //
-// The client shows its own locally-computed fold count/cost estimate in the
-// confirmation modal for a snappy UI, but this route recomputes it
-// server-side and charges off THAT number — the client's number is never
-// trusted for billing.
+// A subscription covers unlimited patterns, so nothing is metered per call.
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -24,9 +21,8 @@ import {
   MAX_UPLOAD_BYTES,
 } from "@/lib/security/validateUpload";
 import { extractPixelGridServer } from "@/lib/security/imageProcessorServer";
-import { generateFoldingPattern, countFolds } from "@/lib/algorithm";
-import { consumeHearts, ensureUserProfile } from "@/lib/firestore/projects";
-import { classifyComplexity, heartsRequired } from "@/lib/pricing";
+import { generateFoldingPattern } from "@/lib/algorithm";
+import { ensureUserProfile, hasActiveSubscription } from "@/lib/firestore/projects";
 import type { BookConfig } from "@/lib/types";
 
 export const runtime = "nodejs"; // sharp needs the Node runtime
@@ -135,12 +131,23 @@ export async function POST(req: NextRequest) {
 
   // Measurement precision is fixed at 1mm (no longer a user setting).
   config.precisionMm = 1;
+  if (!["MMF", "CUT_AND_FOLD", "PAINT"].includes(config.mode)) config.mode = "MMF";
+  if (config.paintColor !== undefined && !/^#[0-9a-fA-F]{6}$/.test(String(config.paintColor))) {
+    delete config.paintColor;
+  }
 
-  // Make sure the user doc exists (first-time login), then meter the action.
+  // Make sure the user doc exists (first-time login, claims guest purchases).
   await ensureUserProfile(user.uid, user.email);
 
-  // 5. Run the real algorithm first — we need the authoritative fold count
-  // to know how many hearts this pattern actually costs.
+  // 5. Unlimited patterns while the monthly pass is active.
+  if (!(await hasActiveSubscription(user.uid, user.email))) {
+    return NextResponse.json(
+      { error: "Active subscription required.", code: "SUBSCRIPTION_REQUIRED" },
+      { status: 402, headers: cors }
+    );
+  }
+
+  // 6. Run the real algorithm.
   let pattern;
   try {
     const grid = await extractPixelGridServer(bytes);
@@ -152,27 +159,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const foldCount = countFolds(pattern);
-  const complexity = classifyComplexity(foldCount);
-  const cost = heartsRequired(foldCount);
-
-  // 6. Consume the required hearts atomically; 402 if insufficient.
-  const remaining = await consumeHearts(user.uid, cost);
-  if (remaining === null) {
-    return NextResponse.json(
-      {
-        error: "Not enough hearts.",
-        code: "INSUFFICIENT_HEARTS",
-        foldCount,
-        complexity,
-        requiredHearts: cost,
-      },
-      { status: 402, headers: cors }
-    );
-  }
-
   return NextResponse.json(
-    { pattern, foldCount, complexity, heartsCharged: cost, heartsRemaining: remaining },
+    { pattern },
     { status: 200, headers: cors }
   );
 }

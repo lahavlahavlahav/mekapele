@@ -1,6 +1,21 @@
 // Shared domain types for the Book Folding Pattern Generator.
 
-export type FoldingMode = "MMF" | "CUT_AND_FOLD";
+/**
+ * PAINT ("צביעה") measures exactly like CUT_AND_FOLD - the same [start, end]
+ * pairs per leaf - but nothing is cut or folded: each band is painted on the
+ * page's fore-edge in config.paintColor, so the picture shows up as color.
+ */
+export type FoldingMode = "MMF" | "CUT_AND_FOLD" | "PAINT";
+
+/** Hebrew name of each technique, as shown everywhere in the UI. */
+export const MODE_LABEL: Record<FoldingMode, string> = {
+  MMF: "סימון וקיפול",
+  CUT_AND_FOLD: "גזירה וקיפול",
+  PAINT: "צביעה",
+};
+
+/** Default color for PAINT mode's painted bands. */
+export const DEFAULT_PAINT_COLOR = "#c2185b";
 export type ReadingDirection = "LTR" | "RTL";
 
 export interface BookConfig {
@@ -22,7 +37,9 @@ export interface BookConfig {
    * leaves). Only used when mode is "MMF".
    */
   mmfLines: number;
-  minTabSizeMm: number; // only used in CUT_AND_FOLD, default 1.0
+  minTabSizeMm: number; // only used in CUT_AND_FOLD / PAINT, default 1.0
+  /** PAINT only: the color painted between each mark pair (hex, e.g. "#c2185b"). */
+  paintColor?: string;
   direction: ReadingDirection;
   /** Trim empty white columns off the left/right edges before slicing. */
   cropSides: boolean;

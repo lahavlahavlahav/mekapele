@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
-import { buildLeafShape, buildFlatLeafShape, orientLeaf } from "@/lib/book3d/leafGeometry";
-import type { FoldingPattern, ReadingDirection } from "@/lib/types";
+import { buildLeafShape, buildFlatLeafShape, buildPaintShapes, orientLeaf } from "@/lib/book3d/leafGeometry";
+import { DEFAULT_PAINT_COLOR, type FoldingPattern, type ReadingDirection } from "@/lib/types";
 
 interface BookModelProps {
   pattern: FoldingPattern;
@@ -192,6 +192,25 @@ function Leaf({
   );
 }
 
+function PaintBand({
+  geometry,
+  angle,
+  pageHeightCm,
+  color,
+}: {
+  geometry: THREE.ExtrudeGeometry;
+  angle: number;
+  pageHeightCm: number;
+  color: string;
+}) {
+  const { quaternion, position } = useMemo(() => orient(angle, pageHeightCm), [angle, pageHeightCm]);
+  return (
+    <mesh geometry={geometry} quaternion={quaternion} position={position} castShadow>
+      <meshStandardMaterial color={color} roughness={0.7} metalness={0} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
 /** Pure wrapper around orientLeaf: returns a quaternion + spine-centering position for a given fan angle. */
 function orient(angle: number, pageHeightCm: number): { quaternion: THREE.Quaternion; position: THREE.Vector3 } {
   const dummy = new THREE.Object3D();
@@ -217,14 +236,35 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
 
   const angles = useLeafAngles(leafCount, leafMaxAngle, config.direction);
 
+  const isPaint = config.mode === "PAINT";
+
+  // PAINT leaves are never folded: every leaf stays a full page, and the
+  // picture comes only from the painted bands drawn on top (paintGeometries).
   const foldedGeometries = useMemo(
     () =>
       pages.map((page) => {
-        const shape = buildLeafShape(page, { pageHeightCm, foldedDepth, fullDepth, mode: config.mode });
+        const shape = isPaint
+          ? buildFlatLeafShape(pageHeightCm, fullDepth)
+          : buildLeafShape(page, { pageHeightCm, foldedDepth, fullDepth, mode: config.mode });
         return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
       }),
-    [pages, pageHeightCm, foldedDepth, fullDepth, thickness, config.mode]
+    [pages, pageHeightCm, foldedDepth, fullDepth, thickness, config.mode, isPaint]
   );
+
+  // Painted bands: a bit thicker than the leaf (centered on it) so the color
+  // covers the fore-edge and wraps onto both faces without z-fighting.
+  const paintGeometries = useMemo(() => {
+    if (!isPaint) return null;
+    const pad = thickness * 0.15;
+    const stripDepth = fullDepth * 0.09;
+    return pages.map((page) => {
+      const shapes = buildPaintShapes(page, pageHeightCm, fullDepth + pad, stripDepth);
+      if (shapes.length === 0) return null;
+      const geom = new THREE.ExtrudeGeometry(shapes, { depth: thickness + 2 * pad, bevelEnabled: false });
+      geom.translate(0, 0, -pad);
+      return geom;
+    });
+  }, [isPaint, pages, pageHeightCm, fullDepth, thickness]);
 
   const coverAngleBack = -coverHalfAngle;
   const coverAngleFront = coverHalfAngle;
@@ -289,6 +329,18 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
 
       {/* Every leaf is real, data-driven relief - spread across the full fan, nothing decorative. */}
       <LeafFan geometries={foldedGeometries} angles={angles} pageHeightCm={pageHeightCm} color={PAGE_COLOR} />
+
+      {paintGeometries?.map((geom, i) =>
+        geom ? (
+          <PaintBand
+            key={i}
+            geometry={geom}
+            angle={angles[i]}
+            pageHeightCm={pageHeightCm}
+            color={config.paintColor || DEFAULT_PAINT_COLOR}
+          />
+        ) : null
+      )}
 
       {/* Endpapers hug the inner face of each cover - same color as the rest
           of the cover, so there is exactly one cover color throughout, no

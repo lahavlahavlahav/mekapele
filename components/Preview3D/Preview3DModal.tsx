@@ -20,7 +20,11 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
   // fully open, showing off the deeper sculptural relief - matches the
   // default this already had. Different starting point per technique, still
   // freely adjustable via the slider below.
-  const [openAngleDeg, setOpenAngleDeg] = useState(pattern.config.mode === "MMF" ? 45 : 90);
+  // A painted book shows its picture on the fore-edges, so it opens wider
+  // still - the colored edges need room to fan out side by side.
+  const [openAngleDeg, setOpenAngleDeg] = useState(
+    pattern.config.mode === "MMF" ? 45 : pattern.config.mode === "PAINT" ? 120 : 90
+  );
   // Only visible when no cover image is set - an uploaded cover always wins.
   const [coverColor, setCoverColor] = useState(DEFAULT_COVER_COLOR);
   const pageHeightCm = pattern.config.pageHeightCm;

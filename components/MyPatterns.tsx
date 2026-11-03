@@ -10,6 +10,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthProvider";
 import { useStore } from "@/lib/store";
+import { MODE_LABEL } from "@/lib/types";
 import {
   listPatterns,
   deletePattern,
@@ -18,7 +19,7 @@ import {
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 import InfoTip from "./ui/InfoTip";
 import { LoginGate, UserBadge } from "./LoginGate";
-import HeartsBadge from "./hearts/HeartsBadge";
+import SubscriptionBadge from "./subscription/SubscriptionBadge";
 import Footer from "./Footer";
 
 export default function MyPatterns() {
@@ -93,7 +94,7 @@ export default function MyPatterns() {
         >
           תבנית חדשה
         </button>
-        <HeartsBadge />
+        <SubscriptionBadge />
         <UserBadge />
       </header>
 
@@ -150,7 +151,7 @@ export default function MyPatterns() {
                     <h3 className="font-display text-lg">{sp.name}</h3>
                     <p className="text-xs text-[var(--ink-soft)] tabular">
                       עמודים {sp.pattern.config.firstPage}–{sp.pattern.config.lastPage} ·{" "}
-                      {sp.pattern.config.mode === "MMF" ? "סימון וקיפול" : "גזירה וקיפול"}{" "}
+                      {MODE_LABEL[sp.pattern.config.mode] ?? MODE_LABEL.MMF}{" "}
                       · {new Date(sp.createdAt).toLocaleDateString("he-IL")}
                     </p>
                   </div>

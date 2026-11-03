@@ -333,7 +333,8 @@ export function generateFoldingPattern(
       ? mmfLines > 1
         ? generateMultilineMMF(grid, config, leafCount, first, threshold, cropStartX, cropWidth, mmfLines)
         : generateMMF(grid, config, leafCount, first, threshold, cropStartX, cropWidth)
-      : generateCutAndFold(
+      : // PAINT paints the same bands Cut & Fold would cut - same measurement.
+        generateCutAndFold(
           grid,
           config,
           leafCount,

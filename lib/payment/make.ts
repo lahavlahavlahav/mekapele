@@ -32,7 +32,13 @@ export interface CreatePaymentLinkParams {
   sum: number;
   description: string;
   userId: string;
+  /**
+   * Subscription days bought (e.g. "30"). Still named heartsAdded because
+   * the Make scenario maps that exact key onto Grow's cField2 - renaming it
+   * would silently break the existing mapping.
+   */
   heartsAdded: string;
+  /** Plan id ("monthly"), mapped onto cField3. */
   packageId: string;
   successUrl: string;
   cancelUrl: string;

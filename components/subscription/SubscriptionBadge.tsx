@@ -1,22 +1,24 @@
 "use client";
 
 // =============================================================================
-// HEARTS BADGE  — header widget showing the user's remaining hearts
+// SUBSCRIPTION BADGE  — header widget showing the monthly-pass status
 // -----------------------------------------------------------------------------
-// Click/hover reveals a popover explaining how the hearts model works, with a
-// button to open the purchase modal. Renders nothing for signed-out users.
+// Active: "מנוי פעיל עד <date>". Otherwise a button that opens the subscribe
+// modal. Click/hover reveals a short explanation of the plan. Renders nothing
+// for signed-out users.
 // =============================================================================
 
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { useHearts } from "@/lib/hooks/useHearts";
-import PurchaseModal from "./PurchaseModal";
+import { formatUntil, useSubscription } from "@/lib/hooks/useSubscription";
+import { MONTHLY_PLAN } from "@/lib/pricing";
+import SubscribeModal from "./SubscribeModal";
 
-export default function HeartsBadge() {
+export default function SubscriptionBadge() {
   const { user } = useAuth();
-  const hearts = useHearts();
+  const { status } = useSubscription();
   const [open, setOpen] = useState(false);
-  const [showPurchase, setShowPurchase] = useState(false);
+  const [showSubscribe, setShowSubscribe] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export default function HeartsBadge() {
   }, [open]);
 
   if (!user) return null;
+  const active = !!status?.active;
 
   return (
     <div className="relative" ref={ref}>
@@ -37,12 +40,19 @@ export default function HeartsBadge() {
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={() => setOpen(true)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold tabular"
-        style={{ borderColor: "var(--line)", background: "var(--paper-2)" }}
+        style={
+          active
+            ? { borderColor: "var(--sage)", background: "var(--paper-2)" }
+            : { borderColor: "var(--coral)", background: "rgba(226,97,74,0.08)" }
+        }
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span aria-hidden>❤️</span>
-        {hearts === null ? "…" : `${hearts} לבבות`}
+        {status === null
+          ? "…"
+          : active
+          ? `✓ מנוי עד ${formatUntil(status.activeUntil)}`
+          : `מנוי ₪${MONTHLY_PLAN.priceIls}`}
       </button>
 
       {open && (
@@ -55,26 +65,34 @@ export default function HeartsBadge() {
             boxShadow: "var(--shadow)",
           }}
         >
-          <p className="font-display text-base mb-2">איך עובדים הלבבות?</p>
+          <p className="font-display text-base mb-2">איך עובד המנוי?</p>
           <ul className="space-y-1 text-[var(--ink-soft)] mb-3">
-            <li>תבנית פשוטה (עד 500 קיפולים) = לב 1 (❤️)</li>
-            <li>תבנית מורכבת (מעל 500 קיפולים) = 2 לבבות (❤️❤️)</li>
+            <li>
+              ₪{MONTHLY_PLAN.priceIls} ל-{MONTHLY_PLAN.days} יום - תבניות ללא הגבלה.
+            </li>
+            <li>בלי הוראת קבע: מחדשים רק כשרוצים, והימים שנשארו נשמרים.</li>
+            {status && status.activeUntil > 0 && (
+              <li className="font-semibold text-[var(--ink)]">
+                {active ? "המנוי שלך פעיל עד " : "המנוי שלך הסתיים ב-"}
+                {formatUntil(status.activeUntil)}
+              </li>
+            )}
           </ul>
           <button
             type="button"
             onClick={() => {
               setOpen(false);
-              setShowPurchase(true);
+              setShowSubscribe(true);
             }}
             className="w-full py-2 rounded-lg font-semibold text-white"
             style={{ background: "var(--coral)" }}
           >
-            לרכישת לבבות נוספים
+            {active ? "הארכת המנוי בחודש" : "להצטרפות למנוי"}
           </button>
         </div>
       )}
 
-      {showPurchase && <PurchaseModal onClose={() => setShowPurchase(false)} />}
+      {showSubscribe && <SubscribeModal onClose={() => setShowSubscribe(false)} />}
     </div>
   );
 }

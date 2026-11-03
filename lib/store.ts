@@ -10,7 +10,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { BookConfig, FoldingPattern, PageMeasurement } from "./types";
+import { DEFAULT_PAINT_COLOR, type BookConfig, type FoldingPattern, type PageMeasurement } from "./types";
 
 export const DEFAULT_CONFIG: BookConfig = {
   firstPage: 41,
@@ -20,6 +20,7 @@ export const DEFAULT_CONFIG: BookConfig = {
   mode: "MMF",
   mmfLines: 1,
   minTabSizeMm: 1.0,
+  paintColor: DEFAULT_PAINT_COLOR,
   direction: "RTL",
   cropSides: true,
   autoThreshold: true,

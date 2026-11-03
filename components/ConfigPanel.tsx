@@ -4,18 +4,17 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
-import { generateFoldingPattern, countFolds } from "@/lib/algorithm";
-import type { FoldingMode, FoldingPattern, ReadingDirection } from "@/lib/types";
+import { generateFoldingPattern } from "@/lib/algorithm";
+import { DEFAULT_PAINT_COLOR, type FoldingMode, type FoldingPattern, type ReadingDirection } from "@/lib/types";
 import Field from "./ui/Field";
 import InfoTip from "./ui/InfoTip";
 import Footer from "./Footer";
 import { useAuth } from "./AuthProvider";
 import { LoginGate, UserBadge } from "./LoginGate";
 import { savePattern } from "@/lib/firestore/patterns";
-import HeartsBadge from "./hearts/HeartsBadge";
-import ConfirmGenerateModal from "./hearts/ConfirmGenerateModal";
-import { useHearts } from "@/lib/hooks/useHearts";
-import { classifyComplexity, heartsRequired, type PatternComplexity } from "@/lib/pricing";
+import SubscriptionBadge from "./subscription/SubscriptionBadge";
+import SubscribeModal from "./subscription/SubscribeModal";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
 // Three.js touches the DOM/WebGL - never render it on the server.
 const Preview3DModal = dynamic(() => import("./Preview3D/Preview3DModal"), { ssr: false });
@@ -24,6 +23,19 @@ const inputClass =
   "w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular";
 const inputStyle = { borderColor: "var(--line)" } as const;
 
+/** Quick picks for PAINT mode's color; any other color via the native picker. */
+const PAINT_SWATCHES = [
+  { hex: "#c2185b", name: "ורוד פוקסיה" },
+  { hex: "#d32f2f", name: "אדום" },
+  { hex: "#ef6c00", name: "כתום" },
+  { hex: "#f9a825", name: "צהוב" },
+  { hex: "#2e7d32", name: "ירוק" },
+  { hex: "#1565c0", name: "כחול" },
+  { hex: "#6a1b9a", name: "סגול" },
+  { hex: "#212121", name: "שחור" },
+  { hex: "#c9a227", name: "זהב" },
+];
+
 type HeightUnit = "cm" | "mm" | "in";
 const UNIT_TO_CM: Record<HeightUnit, number> = { cm: 1, mm: 0.1, in: 2.54 };
 
@@ -31,13 +43,9 @@ const UNIT_TO_CM: Record<HeightUnit, number> = { cm: 1, mm: 0.1, in: 2.54 };
 export default function ConfigPanel() {
   const { config, setConfig, loadPattern, pattern, sourceImage, thumbnail, foldedPages, setView } = useStore();
   const { user, getToken } = useAuth();
-  const hearts = useHearts();
+  const { status: subscription, refresh: refreshSubscription } = useSubscription();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  // A heart already paid for whatever photo produced the current `pattern` -
-  // tweaking settings and re-generating with that SAME photo is free from
-  // here on; only swapping in a genuinely different photo charges again.
-  const [imageIsPaid, setImageIsPaid] = useState(!!pattern);
 
   // Restore the previously-uploaded image (and its preview) when returning to
   // this screen without a fresh upload - e.g. generate a pattern, then click
@@ -61,15 +69,7 @@ export default function ConfigPanel() {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [preview3D, setPreview3D] = useState<{ pattern: FoldingPattern; coverImageUrl: string | null } | null>(null);
   const [busy3D, setBusy3D] = useState(false);
-  const [confirmState, setConfirmState] = useState<{
-    file: File;
-    pattern: FoldingPattern;
-    thumb: string | null;
-    sourceImg: string | null;
-    foldCount: number;
-    complexity: PatternComplexity;
-    requiredHearts: number;
-  } | null>(null);
+  const [subscribeReason, setSubscribeReason] = useState<string | null>(null);
 
   const onSave = async () => {
     if (!user || !pattern) return;
@@ -91,20 +91,10 @@ export default function ConfigPanel() {
   };
 
   const onFile = (f: File | null) => {
-    if (
-      f &&
-      imageIsPaid &&
-      !window.confirm(
-        "כבר שילמת לב על התבנית מהתמונה הנוכחית. החלפת התמונה תדרוש לב נוסף ביצירת התבנית הבאה. להמשיך?"
-      )
-    ) {
-      return;
-    }
     setError(null);
     setShowGate(false);
     setFile(f);
     setPreviewUrl(f ? URL.createObjectURL(f) : null);
-    setImageIsPaid(false);
   };
 
   function validate(): boolean {
@@ -129,14 +119,9 @@ export default function ConfigPanel() {
     return true;
   }
 
-  // Step 1: compute the pattern locally (fast, free) just to know the fold
-  // count/complexity/cost for the confirmation modal. Requires sign-in.
-  // Nothing is charged yet — that happens server-side in onConfirmGenerate,
-  // which recomputes the fold count authoritatively before billing hearts.
-  //
-  // Exception: if a heart was already paid for this exact photo (imageIsPaid),
-  // re-generating with new settings is free - skip the confirm modal and the
-  // billed API route entirely, and just recompute + load directly.
+  // Generating needs sign-in and an active monthly pass; with one, every
+  // pattern is included. The server route re-checks the pass and returns the
+  // authoritative pattern.
   const onGenerate = async () => {
     setError(null);
     setShowGate(false);
@@ -145,10 +130,13 @@ export default function ConfigPanel() {
       setShowGate(true);
       return;
     }
+    if (subscription && !subscription.active) {
+      setSubscribeReason("כדי ליצור תבניות צריך מנוי פעיל. עם המנוי - כמה תבניות שרוצים כל החודש.");
+      return;
+    }
     setBusy(true);
     try {
-      const [grid, thumb, sourceImg] = await Promise.all([
-        extractPixelGrid(file),
+      const [thumb, sourceImg] = await Promise.all([
         makeThumbnail(file),
         // Same maxEdge as extractPixelGrid, so this lines up 1:1 with the
         // algorithm's own working resolution - sharp enough for GridEditor's
@@ -157,42 +145,9 @@ export default function ConfigPanel() {
         // (not PNG) at this size - see makeThumbnail's docs on why.
         makeThumbnail(file, 1600, "image/jpeg", 0.88),
       ]);
-      const localPattern = generateFoldingPattern(grid, config);
-
-      if (imageIsPaid) {
-        loadPattern(localPattern, thumb, sourceImg);
-        setView("tracker");
-        return;
-      }
-
-      const foldCount = countFolds(localPattern);
-      setConfirmState({
-        file,
-        pattern: localPattern,
-        thumb,
-        sourceImg,
-        foldCount,
-        complexity: classifyComplexity(foldCount),
-        requiredHearts: heartsRequired(foldCount),
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "יצירת התבנית נכשלה. נסו שוב.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Step 2: on confirm, send the image to the gated server route, which
-  // recomputes the fold count itself and atomically deducts the real cost
-  // before returning the authoritative pattern.
-  const onConfirmGenerate = async () => {
-    if (!confirmState) return;
-    setBusy(true);
-    setError(null);
-    try {
       const token = await getToken();
       const form = new FormData();
-      form.set("image", confirmState.file);
+      form.set("image", file);
       form.set("config", JSON.stringify(config));
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -202,18 +157,17 @@ export default function ConfigPanel() {
       const json = await res.json();
       if (!res.ok) {
         if (res.status === 402) {
-          setError("אין מספיק לבבות בחשבונך. רכשו לבבות נוספים ונסו שוב.");
+          refreshSubscription();
+          setSubscribeReason("כדי ליצור תבניות צריך מנוי פעיל. עם המנוי - כמה תבניות שרוצים כל החודש.");
         } else {
           setError(json.error || "יצירת התבנית נכשלה. נסו שוב.");
         }
         return;
       }
-      loadPattern(json.pattern, confirmState.thumb, confirmState.sourceImg);
-      setImageIsPaid(true);
-      setConfirmState(null);
+      loadPattern(json.pattern, thumb, sourceImg);
       setView("tracker");
-    } catch {
-      setError("יצירת התבנית נכשלה. נסו שוב.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "יצירת התבנית נכשלה. נסו שוב.");
     } finally {
       setBusy(false);
     }
@@ -254,7 +208,7 @@ export default function ConfigPanel() {
         >
           התבניות שלי
         </button>
-        <HeartsBadge />
+        <SubscriptionBadge />
         <UserBadge />
       </header>
 
@@ -285,12 +239,6 @@ export default function ConfigPanel() {
             onChange={(e) => onFile(e.target.files?.[0] ?? null)}
           />
         </label>
-        {imageIsPaid && (
-          <p className="mt-3 text-sm" style={{ color: "var(--ink-soft)" }}>
-            🔒 כבר שילמת לב על התמונה הזו — אפשר לשנות את ההגדרות למטה ולעדכן את התבנית כמה פעמים שרוצים, בחינם.
-            רק בחירת תמונה חדשה תדרוש לב נוסף.
-          </p>
-        )}
       </div>
 
       {/* Core parameters */}
@@ -365,7 +313,7 @@ export default function ConfigPanel() {
 
         <Field
           label="שיטת קיפול"
-          info="סימון וקיפול (MMF): מסמנים בכל דף נקודה עליונה ותחתונה ומקפלים את הקצוות פנימה - התמונה מתקבלת כתבליט. גזירה וקיפול: גוזרים בין זוגות הסימונים ומקפלים לסירוגין - מאפשר פרטים עדינים יותר וכמה צורות על אותו דף."
+          info="סימון וקיפול (MMF): מסמנים בכל דף נקודה עליונה ותחתונה ומקפלים את הקצוות פנימה - התמונה מתקבלת כתבליט. גזירה וקיפול: גוזרים בין זוגות הסימונים ומקפלים לסירוגין - מאפשר פרטים עדינים יותר וכמה צורות על אותו דף. צביעה: בלי גזירה ובלי קיפול - צובעים את קצה הדף בין זוגות הסימונים בצבע שבוחרים, והתמונה מופיעה בצבע על חזית הספר."
         >
           <select
             className={inputClass}
@@ -375,8 +323,49 @@ export default function ConfigPanel() {
           >
             <option value="MMF">סימון וקיפול (MMF)</option>
             <option value="CUT_AND_FOLD">גזירה וקיפול</option>
+            <option value="PAINT">צביעה (חדש!)</option>
           </select>
         </Field>
+
+        {config.mode === "PAINT" && (
+          <Field
+            label="באיזה צבע לצבוע?"
+            hint="הצבע שיופיע במקום הגזירה - רואים אותו גם בתצוגת ה-3D."
+            info="במקום לגזור, צובעים את קצה הדף בין שני הסימונים (בטוש, צבע אקרילי או ספוג). כל הקטעים הצבועים יחד יוצרים את התמונה על חזית הספר."
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {PAINT_SWATCHES.map((sw) => {
+                const selected = (config.paintColor || DEFAULT_PAINT_COLOR).toLowerCase() === sw.hex;
+                return (
+                  <button
+                    key={sw.hex}
+                    type="button"
+                    title={sw.name}
+                    aria-label={sw.name}
+                    aria-pressed={selected}
+                    onClick={() => setConfig({ paintColor: sw.hex })}
+                    className="w-8 h-8 rounded-full border-2"
+                    style={{
+                      background: sw.hex,
+                      borderColor: selected ? "var(--ink)" : "var(--paper)",
+                      boxShadow: selected ? "0 0 0 2px var(--paper), 0 0 0 4px var(--ink)" : "0 0 0 1px var(--line)",
+                    }}
+                  />
+                );
+              })}
+              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input
+                  type="color"
+                  value={config.paintColor || DEFAULT_PAINT_COLOR}
+                  onChange={(e) => setConfig({ paintColor: e.target.value })}
+                  className="h-8 w-10 rounded border-0 bg-transparent cursor-pointer"
+                  aria-label="צבע אחר"
+                />
+                צבע אחר
+              </label>
+            </div>
+          </Field>
+        )}
 
         {config.mode === "MMF" && (
           <Field
@@ -472,15 +461,15 @@ export default function ConfigPanel() {
 
           <Field
             label={`גודל לשונית מינימלי (${config.minTabSizeMm.toFixed(1)} מ״מ)`}
-            hint="לגזירה וקיפול בלבד — מתעלם מגזירות דקות מערך זה."
-            info="רצועת נייר צרה מדי קשה לגזור ולקפל ונקרעת בקלות. כל קטע שחור דק מהערך הזה מושמט מהתבנית."
+            hint="לגזירה וקיפול ולצביעה — מתעלם מקטעים דקים מערך זה."
+            info="רצועת נייר צרה מדי קשה לגזור ולקפל ונקרעת בקלות, וקטע צבוע דק מדי כמעט לא נראה. כל קטע שחור דק מהערך הזה מושמט מהתבנית."
           >
             <input
               type="range"
               min={0.1}
               max={5}
               step={0.1}
-              disabled={config.mode !== "CUT_AND_FOLD"}
+              disabled={config.mode === "MMF"}
               className="w-full disabled:opacity-40"
               value={config.minTabSizeMm}
               onChange={(e) =>
@@ -501,22 +490,21 @@ export default function ConfigPanel() {
         </p>
       )}
 
-      {imageIsPaid && foldedPages.length > 0 && (
+      {pattern && foldedPages.length > 0 && (
         <p className="mb-3 text-sm" style={{ color: "var(--coral-deep)" }}>
           שימו לב: עדכון התבנית יאפס את סימוני ההתקדמות ({foldedPages.length} עמודים) שסימנתם עד כה במעקב.
         </p>
       )}
 
       <div className="flex flex-wrap gap-3">
-        {/* Generate: paid the first time (requires sign-in); free re-generation
-            with new settings once a heart was already spent on this photo. */}
+        {/* Generate: requires sign-in and an active monthly pass. */}
         <button
           onClick={onGenerate}
           disabled={busy}
           className="flex-1 min-w-[10rem] py-3.5 rounded-[var(--radius)] font-semibold text-white text-lg disabled:opacity-60"
           style={{ background: "var(--ink)" }}
         >
-          {busy ? "מעבד…" : imageIsPaid ? "עדכנו תבנית (חינם)" : "צרו תבנית"}
+          {busy ? "מעבד…" : "צרו תבנית"}
         </button>
 
         <button
@@ -561,19 +549,8 @@ export default function ConfigPanel() {
         />
       )}
 
-      {confirmState && (
-        <ConfirmGenerateModal
-          previewUrl={previewUrl}
-          pattern={confirmState.pattern}
-          foldCount={confirmState.foldCount}
-          complexity={confirmState.complexity}
-          requiredHearts={confirmState.requiredHearts}
-          currentHearts={hearts ?? 0}
-          busy={busy}
-          error={error}
-          onConfirm={onConfirmGenerate}
-          onClose={() => setConfirmState(null)}
-        />
+      {subscribeReason && (
+        <SubscribeModal reason={subscribeReason} onClose={() => setSubscribeReason(null)} />
       )}
     </div>
   );

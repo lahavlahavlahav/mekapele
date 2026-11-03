@@ -1,30 +1,30 @@
 // =============================================================================
-// FIRESTORE — server-side user & hearts operations  (Admin SDK)
+// FIRESTORE — server-side user & subscription operations  (Admin SDK)
 // -----------------------------------------------------------------------------
-// All hearts mutations live here and run with the Admin SDK, which is the
-// ONLY actor permitted by firestore.rules to touch that protected field.
-// The client can READ its own user doc but can NEVER write `hearts`.
+// Billing is a monthly pass: subscriptions/{uid}.activeUntil (epoch ms). That
+// collection sits under firestore.rules' default-deny, so no client can read
+// or write it - only the Admin SDK here (and the Grow webhook, via
+// lib/firestore/transactions.ts) touches it. The browser learns its status
+// from GET /api/subscription.
 // =============================================================================
 
 import "server-only";
 import { getAdminDb } from "@/lib/firebase/admin";
-import { FieldValue } from "firebase-admin/firestore";
 
 export interface UserProfile {
   email: string | null;
-  hearts: number;
   createdAt: number;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
- * The site owner's own account for demoing/testing the full flow without
- * spending real money: always has 10 hearts, auto-refilled on every
- * generation (see consumeHearts).
+ * The site owner's own account, for demoing/testing the full flow without
+ * paying: always treated as subscribed.
  */
 const OWNER_TEST_EMAIL = "lahavbarak430@gmail.com";
-const OWNER_TEST_HEARTS = 10;
 
-/** Ensure a user doc exists; new users start with 0 hearts (10 for the owner test account). */
+/** Ensure a user doc exists, and claim any guest purchases made under this email. */
 export async function ensureUserProfile(
   uid: string,
   email: string | null
@@ -34,11 +34,7 @@ export async function ensureUserProfile(
 
   const profile: UserProfile = snap.exists
     ? (snap.data() as UserProfile)
-    : {
-        email,
-        hearts: email === OWNER_TEST_EMAIL ? OWNER_TEST_HEARTS : 0,
-        createdAt: Date.now(),
-      };
+    : { email, createdAt: Date.now() };
   if (!snap.exists) await ref.set(profile);
 
   if (email && email !== OWNER_TEST_EMAIL) {
@@ -49,10 +45,20 @@ export async function ensureUserProfile(
 }
 
 /**
- * Credit hearts from any guest purchases (checkout without being signed in,
- * identified by email — see app/api/payment/create-checkout) matching this
- * email. Called on every sign-in via ensureUserProfile, so a guest purchase
- * made before ever creating an account gets picked up the first time they do.
+ * New subscription end after adding `days`: counted from the current end if
+ * the pass is still running (renewing early never loses days), else from now.
+ */
+export function extendActiveUntil(currentUntil: number | undefined, days: number): number {
+  const base = Math.max(Date.now(), currentUntil ?? 0);
+  return base + days * DAY_MS;
+}
+
+/**
+ * Apply subscription days from any guest purchases (checkout without being
+ * signed in, identified by email — see app/api/payment/create-checkout)
+ * matching this email. Called on every sign-in via ensureUserProfile, so a
+ * guest purchase made before ever creating an account gets picked up the
+ * first time they do.
  */
 export async function claimPendingCredits(
   uid: string,
@@ -64,69 +70,35 @@ export async function claimPendingCredits(
     .collection("pendingCredits")
     .where("email", "==", normalized)
     .where("claimed", "==", false);
+  const subRef = db.collection("subscriptions").doc(uid);
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(query);
     if (snap.empty) return;
+    const sub = await tx.get(subRef);
 
-    let total = 0;
+    let days = 0;
     for (const doc of snap.docs) {
-      total += doc.data().heartsAdded as number;
+      days += Number(doc.data().daysAdded ?? 0);
       tx.update(doc.ref, { claimed: true, claimedByUid: uid, claimedAt: Date.now() });
     }
-    if (total > 0) {
-      tx.update(db.collection("users").doc(uid), {
-        hearts: FieldValue.increment(total),
-      });
+    if (days > 0) {
+      const activeUntil = extendActiveUntil(sub.data()?.activeUntil as number | undefined, days);
+      tx.set(subRef, { email: normalized, activeUntil, updatedAt: Date.now() }, { merge: true });
     }
   });
 }
 
-/** Read a user profile (server context). */
-export async function getUserProfile(
-  uid: string
-): Promise<UserProfile | null> {
-  const snap = await getAdminDb().collection("users").doc(uid).get();
-  return snap.exists ? (snap.data() as UserProfile) : null;
+/** Epoch ms the user's pass runs until (0 if never subscribed). */
+export async function getActiveUntil(uid: string, email: string | null): Promise<number> {
+  if (email === OWNER_TEST_EMAIL) return Date.now() + 365 * DAY_MS;
+  const snap = await getAdminDb().collection("subscriptions").doc(uid).get();
+  return (snap.data()?.activeUntil as number | undefined) ?? 0;
 }
 
-/**
- * Atomically consume `amount` hearts if available. Returns the new balance,
- * or null if the user lacks sufficient hearts. Runs in a transaction so two
- * concurrent requests can't double-spend.
- */
-export async function consumeHearts(
-  uid: string,
-  amount: number
-): Promise<number | null> {
-  const ref = getAdminDb().collection("users").doc(uid);
-  return getAdminDb().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists) return null;
-    const profile = snap.data() as UserProfile;
-
-    // Owner test account: never runs out, always sits at 10.
-    if (profile.email === OWNER_TEST_EMAIL) {
-      if (profile.hearts !== OWNER_TEST_HEARTS) {
-        tx.update(ref, { hearts: OWNER_TEST_HEARTS });
-      }
-      return OWNER_TEST_HEARTS;
-    }
-
-    if (profile.hearts < amount) return null;
-
-    const next = profile.hearts - amount;
-    tx.update(ref, { hearts: next });
-    return next;
-  });
-}
-
-/** Grant hearts (called by the Grow payment webhook, or to refund a failed generation). */
-export async function grantHearts(uid: string, amount: number): Promise<void> {
-  await getAdminDb()
-    .collection("users")
-    .doc(uid)
-    .update({ hearts: FieldValue.increment(amount) });
+/** True if the user may generate patterns right now. */
+export async function hasActiveSubscription(uid: string, email: string | null): Promise<boolean> {
+  return (await getActiveUntil(uid, email)) > Date.now();
 }
 
 /** Save a generated pattern under the user's projects subcollection. */

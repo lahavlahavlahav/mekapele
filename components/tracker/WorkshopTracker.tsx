@@ -8,6 +8,7 @@ import ImagePreview from "./ImagePreview";
 import PageJump from "./PageJump";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 import InfoTip from "../ui/InfoTip";
+import { MODE_LABEL } from "@/lib/types";
 
 /**
  * Mode 2 — Interactive Digital Tracker.
@@ -87,7 +88,7 @@ export default function WorkshopTracker() {
             <p className="text-sm font-semibold">
               עמודים {pattern.config.firstPage}–{pattern.config.lastPage} ·{" "}
               {pattern.pages.length} עלים · {pattern.config.direction} ·{" "}
-              {pattern.config.mode === "MMF" ? "סימון וקיפול" : "גזירה וקיפול"}
+              {MODE_LABEL[pattern.config.mode]}
             </p>
           </div>
         </div>
@@ -102,7 +103,7 @@ export default function WorkshopTracker() {
                 <br />
                 <b>תצוגת הדפסה</b> - אותן טבלה ומפה על המסך, להדפסה ישירה.
                 <br />
-                <b>הגדרות</b> - חזרה לשינוי הפרמטרים (בלי לב נוסף לאותה תמונה).
+                <b>הגדרות</b> - חזרה לשינוי הפרמטרים (כלול במנוי).
               </>
             }
           />

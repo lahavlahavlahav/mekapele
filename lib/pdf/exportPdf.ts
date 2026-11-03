@@ -12,7 +12,7 @@
 
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { FoldingPattern, PageMeasurement } from "@/lib/types";
+import { DEFAULT_PAINT_COLOR, type FoldingPattern, type PageMeasurement } from "@/lib/types";
 import { foldMapRows, pairUp } from "@/lib/foldMap";
 
 /** Load the logo once as a data URL so jsPDF can embed it. */
@@ -118,6 +118,8 @@ export async function exportPatternPdf(
         ? (config.mmfLines ?? 1) > 1
           ? `Multiline MMF (${config.mmfLines} lines)`
           : "MMF"
+        : config.mode === "PAINT"
+        ? `Paint (${config.paintColor || DEFAULT_PAINT_COLOR})`
         : "Cut & Fold";
     doc.text(
       `pages ${config.firstPage}-${config.lastPage} | ${pages.length} leaves | ${config.pageHeightCm}cm (spacing ${config.verticalSpacingCm}cm) | ${modeLabel} | ${config.direction}`,
@@ -129,7 +131,15 @@ export async function exportPatternPdf(
   };
 
   if (layout === "map") {
-    drawFoldMap(doc, foldMapRows(pages, config.direction), config.pageHeightCm, pageW, pageH, drawHeader);
+    drawFoldMap(
+      doc,
+      foldMapRows(pages, config.direction),
+      config.pageHeightCm,
+      pageW,
+      pageH,
+      drawHeader,
+      config.mode === "PAINT" ? config.paintColor || DEFAULT_PAINT_COLOR : null
+    );
   } else {
     const head = isSingleLineMMF
       ? [["Page", "Top (cm)", "Bottom (cm)"]]
@@ -194,7 +204,9 @@ function drawFoldMap(
   pageHeightCm: number,
   pageW: number,
   pageH: number,
-  drawHeader: () => void
+  drawHeader: () => void,
+  /** PAINT patterns draw their bars in the paint color; null = default ink. */
+  barColor: string | null
 ): void {
   const marginLeft = 14;
   const marginRight = 14;
@@ -224,7 +236,8 @@ function drawFoldMap(
       doc.setLineWidth(0.1);
       doc.line(marginLeft, y, marginLeft + chartWidth, y);
 
-      doc.setFillColor(29, 36, 51);
+      if (barColor) doc.setFillColor(barColor);
+      else doc.setFillColor(29, 36, 51);
       pairUp(p.marksCm).forEach(([lo, hi]) => {
         const x1 = cmToX(hi);
         const x2 = cmToX(lo);

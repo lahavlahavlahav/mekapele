@@ -62,7 +62,7 @@ export default function SubscribeModal({
           <ul className="mt-2 space-y-1 text-sm text-[var(--ink-soft)]">
             <li>✓ כמה תבניות שרוצים במשך {MONTHLY_PLAN.days} יום</li>
             <li>✓ כל שיטות הקיפול: סימון וקיפול, גזירה וקיפול, וצביעה</li>
-            <li>✓ הוראת קבע חודשית - אפשר לבטל מתי שרוצים</li>
+            <li>✓ תשלום חודשי, מבטלים מתי שרוצים</li>
           </ul>
         </div>
 

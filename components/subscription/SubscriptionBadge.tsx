@@ -72,7 +72,7 @@ export default function SubscriptionBadge() {
               ₪{MONTHLY_PLAN.priceIls} ל-{MONTHLY_PLAN.days} יום - תבניות ללא הגבלה.
             </li>
             <li>
-              הוראת קבע חודשית. ניתן לבטל מתי שרוצים -{" "}
+              תשלום חודשי, מבטלים מתי שרוצים -{" "}
               <Link href="/cancel" className="underline font-semibold">
                 בלחיצה כאן
               </Link>

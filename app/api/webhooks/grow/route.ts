@@ -40,6 +40,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { recordCompletedPayment } from "@/lib/firestore/transactions";
+import { getAdminDb } from "@/lib/firebase/admin";
 import { GROW_MONTHLY_MARKERS, MONTHLY_PLAN } from "@/lib/pricing";
 
 export const runtime = "nodejs";
@@ -66,6 +67,28 @@ function safeEqual(a: string, b: string): boolean {
   return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
 }
 
+/**
+ * Keep every delivery (minus the key) in growWebhookLog, shown on /admin -
+ * the only way to see what Grow actually sends without server-log access.
+ */
+async function logDelivery(body: Record<string, unknown>, keyOk: boolean, outcome: string) {
+  const strip = (o: unknown): unknown =>
+    o && typeof o === "object" && !Array.isArray(o)
+      ? Object.fromEntries(
+          Object.entries(o as Record<string, unknown>)
+            .filter(([k]) => k !== "webhookKey")
+            .map(([k, v]) => [k, strip(v)])
+        )
+      : o;
+  try {
+    await getAdminDb()
+      .collection("growWebhookLog")
+      .add({ receivedAt: Date.now(), keyOk, outcome, payload: JSON.stringify(strip(body)).slice(0, 8000) });
+  } catch (err) {
+    console.error("Grow webhook: could not log delivery", err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const expectedKey = process.env.GROW_WEBHOOK_KEY;
   if (!expectedKey) {
@@ -86,18 +109,30 @@ export async function POST(req: NextRequest) {
   const receivedKey = String(body.webhookKey ?? data.webhookKey ?? "");
   if (!receivedKey || !safeEqual(receivedKey, expectedKey)) {
     console.error("Grow webhook: invalid or missing webhookKey.");
+    await logDelivery(body, false, "נדחה - מפתח שגוי");
     return NextResponse.json({ error: "Invalid webhook key." }, { status: 401 });
   }
 
-  const err = (body.err ?? data.err) as string | undefined;
+  // The old API callback carries err ("0" = success); the dashboard webhook
+  // ("עדכון לאחר ביצוע עסקה") only fires for completed transactions and may
+  // not include err at all - so only an explicit non-zero err is a failure.
+  const err = (body.err ?? data.err) as string | number | undefined;
 
-  if (err !== "0") {
+  if (err !== undefined && String(err) !== "0") {
     // Not a successful payment — acknowledge without touching Firestore.
     console.log(`Grow webhook: acknowledged without crediting (err=${JSON.stringify(err)})`);
+    await logDelivery(body, true, `לא תשלום מוצלח (err=${String(err)})`);
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
-  const growProcessId = String(data.processId ?? data.processToken ?? "");
+  const growProcessId = String(
+    data.processId ??
+      data.processToken ??
+      data.transactionId ??
+      data.transactionCode ??
+      data.asmachta ??
+      ""
+  );
   const customFields =
     (data.customFields as Record<string, unknown> | undefined) ?? {};
   const userId = String(customFields.cField1 ?? "");
@@ -109,11 +144,12 @@ export async function POST(req: NextRequest) {
   const fromFixedPage = GROW_MONTHLY_MARKERS.some((m) => rawPayload.includes(m));
   if (!fromMakePage && !fromFixedPage) {
     console.log("Grow webhook: not a Mekapele subscription payment - ignored.");
+    await logDelivery(body, true, "לא מנוי מקפלא - התעלמות");
     return NextResponse.json({ received: true }, { status: 200 });
   }
   const planId = MONTHLY_PLAN.id;
   const daysAdded = fromMakePage ? Number(customFields.cField2 ?? 0) : MONTHLY_PLAN.days;
-  const amount = Number(data.sum ?? 0);
+  const amount = Number(data.sum ?? data.paymentSum ?? 0);
   // No userId (guest checkout, or the fixed page) — fall back to the buyer's
   // email so the days are parked in pendingCredits and claimed on the next
   // /api/subscription call from an account with that email.
@@ -128,6 +164,7 @@ export async function POST(req: NextRequest) {
     daysAdded <= 0
   ) {
     console.error("Grow webhook: malformed payload", { growProcessId, userId, email, daysAdded });
+    await logDelivery(body, true, "חסר מזהה תהליך או אימייל");
     return NextResponse.json({ error: "Malformed payload." }, { status: 400 });
   }
 
@@ -138,6 +175,8 @@ export async function POST(req: NextRequest) {
     daysAdded,
     amount,
   });
+
+  await logDelivery(body, true, granted ? `זוכה: ${email || userId}` : "כפילות - כבר זוכה");
 
   if (granted) {
     console.log(

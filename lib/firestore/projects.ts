@@ -22,7 +22,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * The site owner's own account, for demoing/testing the full flow without
  * paying: always treated as subscribed.
  */
-const OWNER_TEST_EMAIL = "lahavbarak430@gmail.com";
+export const OWNER_TEST_EMAIL = "lahavbarak430@gmail.com";
 
 /** Ensure a user doc exists, and claim any guest purchases made under this email. */
 export async function ensureUserProfile(

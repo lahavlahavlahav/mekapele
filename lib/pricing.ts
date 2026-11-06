@@ -39,7 +39,7 @@ export const GROW_MONTHLY_PAYMENT_URL =
  * name, product id or payment-page id of the page above - counts as a
  * Mekapele subscription.
  */
-export const GROW_MONTHLY_MARKERS = ["תבניות ללא הגבלה", "1100960", "4253443"];
+export const GROW_MONTHLY_MARKERS = ["תבניות ללא הגבלה", "1100960", "4253443", "4253311"];
 
 export function getPlan(planId: string): Plan | null {
   return planId === MONTHLY_PLAN.id ? MONTHLY_PLAN : null;

@@ -40,6 +40,19 @@ export function useSubscription(): { status: SubscriptionStatus | null; refresh:
     return () => window.removeEventListener("focus", refresh);
   }, [refresh]);
 
+  // Back from Grow (its success redirect adds ?purchase=success): the webhook
+  // may land a few seconds after the redirect, so poll for a couple of minutes.
+  useEffect(() => {
+    if (!user || status?.active) return;
+    if (!new URLSearchParams(window.location.search).has("purchase")) return;
+    const id = window.setInterval(refresh, 5000);
+    const stop = window.setTimeout(() => window.clearInterval(id), 120_000);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(stop);
+    };
+  }, [user, status?.active, refresh]);
+
   return { status, refresh };
 }
 

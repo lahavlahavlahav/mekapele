@@ -23,6 +23,24 @@ export const MONTHLY_PLAN: Plan = {
   days: 30,
 };
 
+/**
+ * Fixed Grow payment page for the monthly pass (₪50, product "תבניות ללא
+ * הגבלה"). Used instead of per-buyer pages from the Make scenario, which Grow
+ * started rejecting (error 1500). A fixed page carries no custom fields, so
+ * the Grow webhook identifies the buyer by email and the purchase by the
+ * markers below.
+ */
+export const GROW_MONTHLY_PAYMENT_URL =
+  "https://pay.grow.link/OTI2OTQ~3be30ed7cd4ecb132b20734faeaeeaa6-NDI1MzQ0Mw";
+
+/**
+ * Grow's webhook fires for every payment on the account (workshops, the
+ * templates shop...). Only a payload mentioning one of these - the product
+ * name, product id or payment-page id of the page above - counts as a
+ * Mekapele subscription.
+ */
+export const GROW_MONTHLY_MARKERS = ["תבניות ללא הגבלה", "1100960", "4253443"];
+
 export function getPlan(planId: string): Plan | null {
   return planId === MONTHLY_PLAN.id ? MONTHLY_PLAN : null;
 }

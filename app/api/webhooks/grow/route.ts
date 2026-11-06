@@ -40,7 +40,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { recordCompletedPayment } from "@/lib/firestore/transactions";
-import { MONTHLY_PLAN } from "@/lib/pricing";
+import { GROW_MONTHLY_MARKERS, MONTHLY_PLAN } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
@@ -101,16 +101,25 @@ export async function POST(req: NextRequest) {
   const customFields =
     (data.customFields as Record<string, unknown> | undefined) ?? {};
   const userId = String(customFields.cField1 ?? "");
-  const planId = String(customFields.cField3 ?? "");
-  // A payment page created before the switch to the monthly plan carries an
-  // old heart-package id here - honour it as one month rather than dropping it.
-  const daysAdded =
-    planId === MONTHLY_PLAN.id ? Number(customFields.cField2 ?? 0) : MONTHLY_PLAN.days;
+  const fromMakePage = String(customFields.cField3 ?? "") === MONTHLY_PLAN.id;
+  // The fixed Grow page (GROW_MONTHLY_PAYMENT_URL) has no custom fields.
+  // This webhook fires for every payment on the Grow account, so a payment
+  // only counts when its payload names that page's product or page id.
+  const rawPayload = JSON.stringify(body);
+  const fromFixedPage = GROW_MONTHLY_MARKERS.some((m) => rawPayload.includes(m));
+  if (!fromMakePage && !fromFixedPage) {
+    console.log("Grow webhook: not a Mekapele subscription payment - ignored.");
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+  const planId = MONTHLY_PLAN.id;
+  const daysAdded = fromMakePage ? Number(customFields.cField2 ?? 0) : MONTHLY_PLAN.days;
   const amount = Number(data.sum ?? 0);
-  // Guest checkout has no userId — fall back to the buyer's email (passed
-  // through by Make/Grow as a standard field, not a custom one) so the days
-  // can still be parked in pendingCredits and claimed on next sign-in.
-  const email = String(data.email ?? data.customerEmail ?? "").trim().toLowerCase();
+  // No userId (guest checkout, or the fixed page) — fall back to the buyer's
+  // email so the days are parked in pendingCredits and claimed on the next
+  // /api/subscription call from an account with that email.
+  const email = String(data.payerEmail ?? data.email ?? data.customerEmail ?? "")
+    .trim()
+    .toLowerCase();
 
   if (
     !growProcessId ||

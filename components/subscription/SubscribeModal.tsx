@@ -6,9 +6,11 @@
 // email typed on that page, so the modal asks to use the account's email.
 // =============================================================================
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { GROW_MONTHLY_PAYMENT_URL, MONTHLY_PLAN } from "@/lib/pricing";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
 export default function SubscribeModal({
   onClose,
@@ -19,6 +21,24 @@ export default function SubscribeModal({
   reason?: string;
 }) {
   const { user } = useAuth();
+  const { status, refresh } = useSubscription();
+  // Grow opens in a new tab and doesn't always send the buyer back, so this
+  // tab waits for the webhook: poll the pass until it turns active.
+  const [waiting, setWaiting] = useState(false);
+
+  useEffect(() => {
+    if (!waiting) return;
+    const id = window.setInterval(refresh, 4000);
+    const stop = window.setTimeout(() => window.clearInterval(id), 15 * 60_000);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(stop);
+    };
+  }, [waiting, refresh]);
+
+  useEffect(() => {
+    if (waiting && status?.active) onClose();
+  }, [waiting, status?.active, onClose]);
 
   return (
     <div
@@ -87,11 +107,24 @@ export default function SubscribeModal({
 
         <a
           href={GROW_MONTHLY_PAYMENT_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setWaiting(true)}
           className="block w-full py-3 rounded-[var(--radius)] font-semibold text-white text-center"
           style={{ background: "var(--coral)" }}
         >
           {`להצטרפות - ₪${MONTHLY_PLAN.priceIls} לחודש`}
         </a>
+
+        {waiting && (
+          <p
+            className="mt-3 text-sm rounded-lg px-3 py-2.5 text-center"
+            style={{ background: "var(--paper-2)", border: "1px solid var(--line)" }}
+          >
+            דף התשלום נפתח בלשונית חדשה. אחרי התשלום חזרו ללשונית הזו - המנוי
+            יופעל כאן אוטומטית תוך כדקה, והחלון ייסגר לבד.
+          </p>
+        )}
 
         <p className="mt-3 text-xs text-center text-[var(--ink-soft)]">
           ניתן לבטל מתי שרוצים -{" "}

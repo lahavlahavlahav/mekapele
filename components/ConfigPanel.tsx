@@ -43,7 +43,7 @@ const UNIT_TO_CM: Record<HeightUnit, number> = { cm: 1, mm: 0.1, in: 2.54 };
 export default function ConfigPanel() {
   const { config, setConfig, loadPattern, pattern, sourceImage, thumbnail, foldedPages, setView } = useStore();
   const { user, getToken } = useAuth();
-  const { status: subscription, refresh: refreshSubscription } = useSubscription();
+  const { refresh: refreshSubscription } = useSubscription();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -130,10 +130,9 @@ export default function ConfigPanel() {
       setShowGate(true);
       return;
     }
-    if (subscription && !subscription.active) {
-      setSubscribeReason("כדי ליצור תבניות צריך מנוי פעיל. עם המנוי - כמה תבניות שרוצים כל החודש.");
-      return;
-    }
+    // No client-side pre-check on the cached pass status: it can be stale
+    // right after paying, and the server (which also claims a just-arrived
+    // payment) answers 402 if there really is no active pass.
     setBusy(true);
     try {
       const [thumb, sourceImg] = await Promise.all([

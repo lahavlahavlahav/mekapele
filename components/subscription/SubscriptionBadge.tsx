@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { formatUntil, useSubscription } from "@/lib/hooks/useSubscription";
 import { MONTHLY_PLAN } from "@/lib/pricing";
@@ -70,7 +71,12 @@ export default function SubscriptionBadge() {
             <li>
               ₪{MONTHLY_PLAN.priceIls} ל-{MONTHLY_PLAN.days} יום - תבניות ללא הגבלה.
             </li>
-            <li>בלי הוראת קבע: מחדשים רק כשרוצים, והימים שנשארו נשמרים.</li>
+            <li>
+              הוראת קבע חודשית. ניתן לבטל מתי שרוצים -{" "}
+              <Link href="/cancel" className="underline font-semibold">
+                בלחיצה כאן
+              </Link>
+            </li>
             {status && status.activeUntil > 0 && (
               <li className="font-semibold text-[var(--ink)]">
                 {active ? "המנוי שלך פעיל עד " : "המנוי שלך הסתיים ב-"}
@@ -78,17 +84,19 @@ export default function SubscriptionBadge() {
               </li>
             )}
           </ul>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              setShowSubscribe(true);
-            }}
-            className="w-full py-2 rounded-lg font-semibold text-white"
-            style={{ background: "var(--coral)" }}
-          >
-            {active ? "הארכת המנוי בחודש" : "להצטרפות למנוי"}
-          </button>
+          {!active && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setShowSubscribe(true);
+              }}
+              className="w-full py-2 rounded-lg font-semibold text-white"
+              style={{ background: "var(--coral)" }}
+            >
+              להצטרפות למנוי
+            </button>
+          )}
         </div>
       )}
 

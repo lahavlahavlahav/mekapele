@@ -6,6 +6,7 @@
 // email typed on that page, so the modal asks to use the account's email.
 // =============================================================================
 
+import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { GROW_MONTHLY_PAYMENT_URL, MONTHLY_PLAN } from "@/lib/pricing";
 
@@ -61,7 +62,7 @@ export default function SubscribeModal({
           <ul className="mt-2 space-y-1 text-sm text-[var(--ink-soft)]">
             <li>✓ כמה תבניות שרוצים במשך {MONTHLY_PLAN.days} יום</li>
             <li>✓ כל שיטות הקיפול: סימון וקיפול, גזירה וקיפול, וצביעה</li>
-            <li>✓ תשלום חד-פעמי לחודש, בלי הוראת קבע - מחדשים רק כשרוצים</li>
+            <li>✓ הוראת קבע חודשית - אפשר לבטל מתי שרוצים</li>
           </ul>
         </div>
 
@@ -91,6 +92,13 @@ export default function SubscribeModal({
         >
           {`להצטרפות - ₪${MONTHLY_PLAN.priceIls} לחודש`}
         </a>
+
+        <p className="mt-3 text-xs text-center text-[var(--ink-soft)]">
+          ניתן לבטל מתי שרוצים -{" "}
+          <Link href="/cancel" className="underline font-semibold" onClick={onClose}>
+            בלחיצה כאן
+          </Link>
+        </p>
       </div>
     </div>
   );

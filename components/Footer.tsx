@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/terms", label: "תקנון ופרטיות" },
   { href: "/accessibility", label: "הצהרת נגישות" },
   { href: "/contact", label: "צור קשר" },
+  { href: "/cancel", label: "ביטול מנוי" },
 ];
 
 export default function Footer() {

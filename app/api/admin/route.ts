@@ -10,6 +10,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { verifyAuth } from "@/lib/auth/verifyAuth";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { OWNER_TEST_EMAIL } from "@/lib/firestore/projects";
@@ -17,7 +18,24 @@ import { MONTHLY_PLAN } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
+/** Constant-time compare, so the key can't be guessed by timing. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
+ * The owner's Firebase sign-in, or an `x-admin-key` header matching
+ * ADMIN_API_KEY (lets the owner's assistant read the admin data without a
+ * browser sign-in; disabled when the env var isn't set).
+ */
 async function requireOwner(req: NextRequest) {
+  const adminKey = process.env.ADMIN_API_KEY;
+  const sentKey = req.headers.get("x-admin-key") || "";
+  if (adminKey && adminKey.length >= 32 && sentKey && safeEqual(sentKey, adminKey)) {
+    return { uid: "admin-key", email: OWNER_TEST_EMAIL };
+  }
   const user = await verifyAuth(req);
   return user?.email === OWNER_TEST_EMAIL ? user : null;
 }

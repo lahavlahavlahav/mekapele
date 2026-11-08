@@ -36,10 +36,17 @@ export const GROW_MONTHLY_PAYMENT_URL =
 /**
  * Grow's webhook fires for every payment on the account (workshops, the
  * templates shop...). Only a payload mentioning one of these - the product
- * name, product id or payment-page id of the page above - counts as a
+ * page title, product name, product id or payment-page id of the page above - counts as a
  * Mekapele subscription.
  */
-export const GROW_MONTHLY_MARKERS = ["תבניות ללא הגבלה", "1100960", "4253443", "4253311"];
+export const GROW_MONTHLY_MARKERS = [
+  // The dashboard webhook only names the page title (paymentDesc).
+  "מקפלא מחולל תבניות",
+  "תבניות ללא הגבלה",
+  "1100960",
+  "4253443",
+  "4253311",
+];
 
 export function getPlan(planId: string): Plan | null {
   return planId === MONTHLY_PLAN.id ? MONTHLY_PLAN : null;

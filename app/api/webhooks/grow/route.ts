@@ -125,14 +125,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
+  // The dashboard webhook has no processId; asmachta (the card approval
+  // number) is unique per charge, including each monthly standing-order run.
+  // Firestore doc ids can't contain "/", which base64 transactionCode may.
   const growProcessId = String(
     data.processId ??
       data.processToken ??
       data.transactionId ??
-      data.transactionCode ??
       data.asmachta ??
+      data.transactionCode ??
       ""
-  );
+  ).replace(/\//g, "_");
   const customFields =
     (data.customFields as Record<string, unknown> | undefined) ?? {};
   const userId = String(customFields.cField1 ?? "");

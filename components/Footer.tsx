@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 const LINKS = [
+  { href: "/blog", label: "בלוג פיסול ספרים" },
+  { href: "/blog/lahav-barak", label: "על היוצרת" },
   { href: "/faq", label: "שאלות ותשובות" },
   { href: "/terms", label: "תקנון ופרטיות" },
   { href: "/accessibility", label: "הצהרת נגישות" },

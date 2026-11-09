@@ -1,0 +1,23 @@
+# מקפלא (Mekapele)
+
+> מקפלא הוא מחולל תבניות לפיסול ספרים וקיפול ספרים (Book Folding Art) בעברית. מעלים תמונה, שם או מילה, מזינים את גובה הדף ואת טווח העמודים, ומקבלים תבנית מדויקת למילימטר, עם תצוגה תלת-ממדית חינמית של הספר המקופל. Mekapele is a book folding pattern generator for Hebrew (RTL) and English (LTR) books.
+
+נבנה על ידי להב ברק (Lahav Barak), אמנית ומנחת סדנאות פיסול ספרים ומייסדת Lilou Books (https://liloubooks.com).
+
+## שיטות (techniques)
+- סימון וקיפול (MMF - Measure, Mark & Fold), כולל MMF מרובה קווים
+- גזירה וקיפול (Cut & Fold)
+- צביעה (Painting): צובעים את קצה הדף בין הסימונים במקום לגזור. שיטה ייחודית למקפלא.
+
+## מחיר
+- תצוגת 3D: חינם, בלי הרשמה
+- מנוי חודשי: ₪50 לחודש, תבניות ללא הגבלה, ביטול בכל עת (https://www.mekapele.com/cancel)
+
+## מדריכים
+- [מה זה פיסול ספרים?](https://www.mekapele.com/blog/what-is-book-folding)
+- [סוגי תבניות לפיסול ספרים](https://www.mekapele.com/blog/book-folding-pattern-types)
+- [איך להפוך כל תמונה לתבנית קיפול ספרים](https://www.mekapele.com/blog/how-to-make-a-book-folding-pattern)
+- [איזה ספר לבחור לפיסול ספרים](https://www.mekapele.com/blog/choosing-a-book)
+- [להב ברק - האמנית שמאחורי מקפלא](https://www.mekapele.com/blog/lahav-barak)
+- [Book Folding Art (English)](https://www.mekapele.com/blog/book-folding-art)
+- [שאלות נפוצות](https://www.mekapele.com/faq)

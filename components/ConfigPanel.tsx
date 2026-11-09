@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { extractPixelGrid, makeThumbnail } from "@/lib/imageProcessor";
@@ -40,7 +40,11 @@ type HeightUnit = "cm" | "mm" | "in";
 const UNIT_TO_CM: Record<HeightUnit, number> = { cm: 1, mm: 0.1, in: 2.54 };
 
 /** Mode 0 — upload an image + set physical book parameters, then generate. */
-export default function ConfigPanel() {
+/**
+ * `children` is server-rendered content (the homepage's intro for search
+ * engines and first-time visitors), shown under the tool, above the footer.
+ */
+export default function ConfigPanel({ children }: { children?: ReactNode }) {
   const { config, setConfig, loadPattern, pattern, sourceImage, thumbnail, foldedPages, setView } = useStore();
   const { user, getToken } = useAuth();
   const { refresh: refreshSubscription } = useSubscription();
@@ -196,7 +200,7 @@ export default function ConfigPanel() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <header className="flex items-center gap-3 mb-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-9 w-auto" />
+        <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-9 w-auto" />
         <div className="flex-1">
           <p className="text-sm text-[var(--ink-soft)]">ע״י האמנית והיזמית להב ברק</p>
         </div>
@@ -537,6 +541,8 @@ export default function ConfigPanel() {
           <LoginGate />
         </div>
       )}
+
+      {children}
 
       <Footer />
 

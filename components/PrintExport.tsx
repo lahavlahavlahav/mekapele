@@ -82,7 +82,7 @@ export default function PrintExport() {
       {/* Branded header — embedded in the printed document */}
       <div className="flex items-center gap-4 pb-4 mb-4 border-b" style={{ borderColor: "var(--ink)" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-12 w-auto" />
+        <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-12 w-auto" />
         <div>
           <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
           <p className="text-sm text-[var(--ink-soft)] tabular">

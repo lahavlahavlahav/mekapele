@@ -51,7 +51,7 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/assets/mekapele-logo.png"
-            alt="Lilou Books"
+            alt="מקפלא - מחולל תבניות לפיסול ספרים"
             className="h-7 w-auto opacity-90"
             style={{ filter: "invert(1)" }}
           />

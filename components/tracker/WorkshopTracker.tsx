@@ -79,7 +79,7 @@ export default function WorkshopTracker() {
       <header className="no-print flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--line)" }}>
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/mekapele-logo.png" alt="Lilou Books" className="h-7 w-auto" />
+          <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-7 w-auto" />
           <div className="leading-tight">
             <p className="eyebrow flex items-center gap-1.5">
               מצב סדנה

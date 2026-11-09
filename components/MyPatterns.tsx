@@ -80,7 +80,7 @@ export default function MyPatterns() {
           → חזרה
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/mekapele-logo.png" alt="Mekapele" className="h-9 w-auto" />
+        <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-9 w-auto" />
         <div className="flex-1">
           <h1 className="font-display text-2xl">התבניות שלי</h1>
           <p className="text-sm text-[var(--ink-soft)]">

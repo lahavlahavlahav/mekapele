@@ -26,6 +26,13 @@ const SHOP_ORIGINS = [
 ];
 const CATALOG_URL = "https://liloubooks.com/shop/catalog.json";
 const FORMSPREE_URL = "https://formspree.io/f/mzzjvvqv";
+/**
+ * "manual": the owner sends the Grow payment link herself on WhatsApp (the
+ * order email carries a ready wa.me link), because Grow answers 1500 to the
+ * Make CreatePaymentLink module. Switch to "auto" once that works, and the
+ * shop redirects straight to a dynamic Grow page for the exact total.
+ */
+const PAYMENT_MODE: "manual" | "auto" = "manual";
 
 type Text = { he: string; en: string };
 interface OptionValue { id: string; name: Text; delta: number }
@@ -148,7 +155,14 @@ export async function POST(req: NextRequest) {
   const fullName = `${firstName} ${lastName}`;
 
   // ---- 1. email the order (the record of truth until payment) ----
+  const waText = he
+    ? `היי ${firstName}, תודה על ההזמנה ${orderId} ב-Lilou Books! 💛\nהנה הקישור לתשלום מאובטח (₪${total}):\n`
+    : `Hi ${firstName}, thank you for order ${orderId} at Lilou Books! 💛\nHere is your secure payment link (₪${total}):\n`;
+  const waLink = `https://wa.me/972${phone.slice(1)}?text=${encodeURIComponent(waText)}`;
   const text = [
+    `👉 לשליחת קישור התשלום בוואטסאפ: ${waLink}`,
+    `(צרי בקשת תשלום ב-Grow על ₪${total} והדביקי את הקישור בסוף ההודעה)`,
+    "",
     `הזמנה ${orderId} · סה"כ ₪${total}`,
     "",
     ...lines.map((l) => `• ${l.title} × ${l.qty} - ₪${l.unit * l.qty}\n   ${l.details.join(" | ")}`),
@@ -171,6 +185,10 @@ export async function POST(req: NextRequest) {
     console.error("liloubooks checkout: formspree failed", err);
   }
   console.log("liloubooks order", JSON.stringify({ orderId, total, lines, method, email, phone }));
+
+  if (PAYMENT_MODE === "manual") {
+    return NextResponse.json({ orderId, total, paymentUrl: null }, { status: 200, headers });
+  }
 
   // ---- 2. dynamic Grow payment page via Make ----
   const shopBase = he ? "https://liloubooks.com/shop/" : "https://liloubooks.com/en/shop/";

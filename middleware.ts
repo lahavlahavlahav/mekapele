@@ -69,6 +69,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // The liloubooks.com shop checkout is called from that site's origin and
+  // enforces its own allow-list and rate limit (app/api/liloubooks/).
+  if (pathname.startsWith("/api/liloubooks/")) {
+    return NextResponse.next();
+  }
+
   const origin = req.headers.get("origin");
   const allowed = allowedOrigins();
 

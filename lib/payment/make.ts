@@ -46,6 +46,10 @@ export interface CreatePaymentLinkParams {
   fullName: string;
   phone: string;
   email?: string;
+  /** Payment page title; the scenario falls back to the Mekapele title when empty. */
+  title?: string;
+  /** Thank-you text on the Grow page; the scenario falls back to the Mekapele text when empty. */
+  thankYou?: string;
 }
 
 export interface CreatePaymentLinkResult {

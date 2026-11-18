@@ -65,11 +65,8 @@ export interface DiscountCode {
 
 export const DISCOUNT_CODES: Record<string, DiscountCode> = {
   NEW10: { code: "NEW10", percentOff: 10 },
-  // Internal QA only - 98% off brings the ₪50 monthly plan down to exactly
-  // ₪1 (Math.round(50 * 0.02) = 1), for testing the real Grow checkout +
-  // webhook end-to-end without a meaningful charge. Not meant for customer
-  // use; remove once payment testing is done.
-  TEST1: { code: "TEST1", percentOff: 98 },
+  // No test codes here: this repo is public, so any code written in it is
+  // readable by anyone. Test discounts belong in the Grow dashboard.
 };
 
 export function getDiscountCode(input: string | undefined | null): DiscountCode | null {

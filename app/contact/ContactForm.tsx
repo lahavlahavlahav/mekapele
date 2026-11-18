@@ -59,6 +59,8 @@ export default function ContactForm() {
       className="space-y-3 rounded-[var(--radius)] p-5"
       style={{ background: "var(--paper-2)", border: "1px solid var(--line)" }}
     >
+      {/* Same Formspree form as /cancel - the subject tells the two apart in the inbox. */}
+      <input type="hidden" name="_subject" value="פנייה חדשה מצור קשר - מקפלא" />
       <label className="block text-sm">
         <span className="font-semibold block mb-1.5">שם</span>
         <input

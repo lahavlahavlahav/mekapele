@@ -41,13 +41,16 @@ export function welcomeHtml(fullName?: string): string {
 }
 
 /**
- * Hands the email to the Make scenario that sends it from hi@liloubooks.com
- * (WELCOME_EMAIL_HOOK_URL, a Make custom webhook). Does nothing until that
- * env var is set. Never throws - a failed email must not fail the payment.
+ * Hands the email to Make, which sends it from hi@liloubooks.com. The free
+ * Make plan has no room for another scenario, so it reuses the "Integration
+ * Webhooks, Grow" scenario (6745059, hook = MAKE_CHECKOUT_WEBHOOK_URL): a
+ * router sends payloads that carry `subject` to the Outlook module, and
+ * everything else to the old Grow payment-link flow. WELCOME_EMAIL_HOOK_URL
+ * overrides it. Never throws - a failed email must not fail the payment.
  */
 export async function sendWelcomeEmail(to: string, fullName?: string): Promise<string> {
-  const hook = process.env.WELCOME_EMAIL_HOOK_URL;
-  if (!hook) return "מייל תודה: לא הוגדר WELCOME_EMAIL_HOOK_URL";
+  const hook = process.env.WELCOME_EMAIL_HOOK_URL || process.env.MAKE_CHECKOUT_WEBHOOK_URL;
+  if (!hook) return "מייל תודה: אין כתובת Make";
   try {
     const res = await fetch(hook, {
       method: "POST",

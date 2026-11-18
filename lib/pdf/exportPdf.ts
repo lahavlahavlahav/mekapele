@@ -44,17 +44,76 @@ async function loadLogo(): Promise<{
   }
 }
 
+/** Rubik (OFL, Google Fonts) - covers Hebrew, digits and Latin. */
+const FONT = "Rubik";
+
+async function fetchBase64(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * jsPDF draws glyphs strictly left to right, and its default bidi pass
+ * mangles logical Hebrew. So every Hebrew string is reordered to visual
+ * order here, and the doc's text() is told to leave it untouched.
+ */
+type Bidi = { doBidiReorder: (s: string) => string };
+const BidiEngine = (jsPDF as unknown as { __bidiEngine__: new (o: object) => Bidi }).__bidiEngine__;
+const toVisual = new BidiEngine({
+  isInputVisual: false,
+  isOutputVisual: true,
+  isInputRtl: true,
+  isOutputRtl: false,
+  isSymmetricSwapping: true,
+});
+const HEBREW = /[\u0590-\u05FF]/;
+const vis = (s: string) => (HEBREW.test(s) ? toVisual.doBidiReorder(s) : s);
+
+function disableBuiltInBidi(doc: jsPDF) {
+  const text = doc.text.bind(doc) as (...a: unknown[]) => jsPDF;
+  (doc as unknown as { text: (...a: unknown[]) => jsPDF }).text = (t, x, y, o, ...rest) =>
+    text(t, x, y, { ...((o as object) ?? {}), isInputVisual: true, isOutputVisual: true }, ...rest);
+}
+
+/** Embed Rubik so Hebrew renders. Returns false (Helvetica fallback) on failure. */
+async function registerHebrewFont(doc: jsPDF): Promise<boolean> {
+  const [regular, bold] = await Promise.all([
+    fetchBase64("/fonts/Rubik-Regular.ttf"),
+    fetchBase64("/fonts/Rubik-Bold.ttf"),
+  ]);
+  if (!regular) return false;
+  doc.addFileToVFS("Rubik-Regular.ttf", regular);
+  doc.addFont("Rubik-Regular.ttf", FONT, "normal");
+  doc.addFileToVFS("Rubik-Bold.ttf", bold ?? regular);
+  doc.addFont("Rubik-Bold.ttf", FONT, "bold");
+  doc.setFont(FONT, "normal");
+  disableBuiltInBidi(doc);
+  return true;
+}
+
 const HE = {
-  title: "תבנית קיפול ספר",
+  brand: "מקפלא",
   page: "עמוד",
-  top: "עליון (ס״מ)",
-  bottom: "תחתון (ס״מ)",
-  noFold: "— אין קיפול —",
+  top: "סימון עליון",
+  bottom: "סימון תחתון",
+  mark: (n: number) => `סימון ${n}`,
   mmf: "סימון וקיפול",
+  mmfMulti: (n: number) => `סימון וקיפול - ${n} קווים`,
   cut: "גזירה וקיפול",
-  pages: "עמודים",
-  leaves: "עלים",
-  height: "גובה עמוד",
+  paint: "צביעה",
+  rtl: "עברית (ימין לשמאל)",
+  ltr: "אנגלית (שמאל לימין)",
+  mapNote: "ראש העמוד בצד ימין (הקו העבה = הקצה העליון)",
 };
 
 /**
@@ -100,6 +159,7 @@ export async function exportPatternPdf(
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
+  const hebrew = await registerHebrewFont(doc);
   const logo = await loadLogo();
   const logoH = 14; // mm
   const logoW = logo ? (logo.w / logo.h) * logoH : 0;
@@ -110,23 +170,27 @@ export async function exportPatternPdf(
       doc.addImage(logo.dataUrl, "PNG", 14, 8, logoW, logoH);
     }
     doc.setFontSize(14);
-    doc.text("Mekapele", pageW - 14, 16, { align: "right" });
+    doc.text(hebrew ? vis(HE.brand) : "Mekapele", pageW - 14, 16, { align: "right" });
     doc.setFontSize(9);
     doc.setTextColor(120);
-    const modeLabel =
-      config.mode === "MMF"
-        ? (config.mmfLines ?? 1) > 1
-          ? `Multiline MMF (${config.mmfLines} lines)`
-          : "MMF"
-        : config.mode === "PAINT"
-        ? `Paint (${config.paintColor || DEFAULT_PAINT_COLOR})`
-        : "Cut & Fold";
-    doc.text(
-      `pages ${config.firstPage}-${config.lastPage} | ${pages.length} leaves | ${config.pageHeightCm}cm (spacing ${config.verticalSpacingCm}cm) | ${modeLabel} | ${config.direction}`,
-      pageW - 14,
-      22,
-      { align: "right" }
-    );
+    const lines = config.mmfLines ?? 1;
+    const paint = config.paintColor || DEFAULT_PAINT_COLOR;
+    const info = hebrew
+      ? [
+          `עמודים ${config.firstPage}-${config.lastPage}`,
+          `${pages.length} דפים`,
+          `גובה עמוד ${config.pageHeightCm} ס״מ (מרווח ${config.verticalSpacingCm} ס״מ)`,
+          config.mode === "MMF"
+            ? lines > 1 ? HE.mmfMulti(lines) : HE.mmf
+            : config.mode === "PAINT" ? HE.paint : HE.cut,
+          config.direction === "RTL" ? HE.rtl : HE.ltr,
+          "מידות בס״מ",
+        ].join("  |  ")
+      : `pages ${config.firstPage}-${config.lastPage} | ${pages.length} leaves | ${config.pageHeightCm}cm (spacing ${config.verticalSpacingCm}cm) | ${
+          config.mode === "MMF" ? (lines > 1 ? `Multiline MMF (${lines} lines)` : "MMF")
+          : config.mode === "PAINT" ? `Paint (${paint})` : "Cut & Fold"
+        } | ${config.direction}`;
+    doc.text(vis(info), pageW - 14, 22, { align: "right" });
     doc.setTextColor(0);
   };
 
@@ -138,12 +202,18 @@ export async function exportPatternPdf(
       pageW,
       pageH,
       drawHeader,
-      config.mode === "PAINT" ? config.paintColor || DEFAULT_PAINT_COLOR : null
+      config.mode === "PAINT" ? config.paintColor || DEFAULT_PAINT_COLOR : null,
+      hebrew ? vis(HE.mapNote) : "Top of page at right (bold line = top edge)"
     );
   } else {
     const head = isSingleLineMMF
-      ? [["Page", "Top (cm)", "Bottom (cm)"]]
-      : [["Page", ...Array.from({ length: maxMarks }, (_, i) => `M${i + 1}`)]];
+      ? [[HE.page, HE.top, HE.bottom]]
+      : [[HE.page, ...Array.from({ length: maxMarks }, (_, i) => HE.mark(i + 1))]];
+    if (!hebrew) {
+      head[0] = isSingleLineMMF
+        ? ["Page", "Top (cm)", "Bottom (cm)"]
+        : ["Page", ...Array.from({ length: maxMarks }, (_, i) => `M${i + 1}`)];
+    }
 
     const body = pages.map((p) => {
       if (p.isBlank) {
@@ -174,13 +244,17 @@ export async function exportPatternPdf(
     const colWidth = usableWidth / numDataCols;
     const fontSize = Math.max(5, Math.min(9, Math.floor((colWidth - 2) / 0.98)));
 
+    // Hebrew reads right to left: "עמוד" is the rightmost column.
+    const rtl = (rows: string[][]) =>
+      hebrew ? rows.map((r) => [...r].reverse().map(vis)) : rows;
+
     autoTable(doc, {
-      head,
-      body,
+      head: rtl(head),
+      body: rtl(body),
       startY: 30,
       margin: { top: 28, left: 14, right: 14 },
-      styles: { fontSize, cellPadding: fontSize < 9 ? 0.8 : 1.5, halign: "center" },
-      headStyles: { fillColor: [29, 36, 51], textColor: 255 },
+      styles: { font: hebrew ? FONT : "helvetica", fontSize, cellPadding: fontSize < 9 ? 0.8 : 1.5, halign: "center" },
+      headStyles: { fillColor: [29, 36, 51], textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [246, 241, 231] },
       didDrawPage: drawHeader,
     });
@@ -206,7 +280,8 @@ function drawFoldMap(
   pageH: number,
   drawHeader: () => void,
   /** PAINT patterns draw their bars in the paint color; null = default ink. */
-  barColor: string | null
+  barColor: string | null,
+  note: string
 ): void {
   const marginLeft = 14;
   const marginRight = 14;
@@ -227,7 +302,7 @@ function drawFoldMap(
     drawHeader();
     doc.setFontSize(9);
     doc.setTextColor(120);
-    doc.text("Top of page at right (bold line = top edge)", pageW - marginRight, top - 4, { align: "right" });
+    doc.text(note, pageW - marginRight, top - 4, { align: "right" });
     doc.setTextColor(0);
 
     chunk.forEach((p, row) => {

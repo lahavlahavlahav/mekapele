@@ -6,7 +6,8 @@
    own "high contrast" toggle already used) - clearer and more accessible.
    ========================================================================== */
 :root {
-  --paper: #ffffff;
+  /* Same cream page background as liloubooks.com (--cream-bg); cards stay white. */
+  --paper: #f8f4ee;
   --paper-2: #ffffff;
   --ink: #000000;
   --ink-soft: #000000;

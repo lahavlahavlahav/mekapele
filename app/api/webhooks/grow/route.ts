@@ -42,6 +42,7 @@ import crypto from "crypto";
 import { recordCompletedPayment } from "@/lib/firestore/transactions";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { GROW_MONTHLY_MARKERS, MONTHLY_PLAN } from "@/lib/pricing";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
 
 export const runtime = "nodejs";
 
@@ -179,7 +180,22 @@ export async function POST(req: NextRequest) {
     amount,
   });
 
-  await logDelivery(body, true, granted ? `זוכה: ${email || userId}` : "כפילות - כבר זוכה");
+  // Thank-you email on the buyer's first payment only (not on monthly
+  // renewals): this payment is their only transaction so far.
+  let emailNote = "";
+  if (granted && email) {
+    const prior = await getAdminDb()
+      .collection("transactions")
+      .where("email", "==", email)
+      .limit(2)
+      .get();
+    if (prior.size <= 1) {
+      const name = String(data.fullName ?? data.payerFullName ?? data.payerName ?? data.name ?? "");
+      emailNote = ` | ${await sendWelcomeEmail(email, name)}`;
+    }
+  }
+
+  await logDelivery(body, true, (granted ? `זוכה: ${email || userId}` : "כפילות - כבר זוכה") + emailNote);
 
   if (granted) {
     console.log(

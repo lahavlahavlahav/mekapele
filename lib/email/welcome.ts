@@ -1,0 +1,61 @@
+import "server-only";
+
+/**
+ * Thank-you email for a new Mekapele subscriber - the exact version the
+ * owner approved on 2026-11-18 (RTL, black logo). Sent once per buyer, on
+ * their first payment, from hi@liloubooks.com (see sendWelcomeEmail).
+ */
+export const WELCOME_SUBJECT = "תודה שהצטרפת למקפלא!";
+
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** First name only ("מיכל מוניץ" -> "מיכל"); no name -> just "היי,". */
+export function welcomeHtml(fullName?: string): string {
+  const first = (fullName ?? "").trim().split(/\s+/)[0] ?? "";
+  const greeting = first ? `היי ${escapeHtml(first)},` : "היי,";
+  return `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body dir="rtl" style="margin:0;padding:0;direction:rtl;text-align:right">
+<table role="presentation" dir="rtl" width="100%" cellpadding="0" cellspacing="0" border="0" style="direction:rtl">
+<tr><td align="center" style="padding:16px">
+<table role="presentation" dir="rtl" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;direction:rtl">
+<tr><td dir="rtl" align="right" style="direction:rtl;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.7;color:#1d2433">
+  <p dir="rtl" style="direction:rtl;text-align:right;margin:16px 0"><img src="https://www.mekapele.com/assets/mekapele-logo.png" alt="מקפלא" style="height:48px"></p>
+  <p dir="rtl" style="direction:rtl;text-align:right">${greeting}</p>
+  <p dir="rtl" style="direction:rtl;text-align:right"><strong>תודה רבה שרכשת מנוי למקפלא!</strong><br>המנוי שלך פעיל, ואפשר להתחיל ליצור תבניות ללא הגבלה:</p>
+  <p dir="rtl" style="direction:rtl;text-align:right"><a href="https://www.mekapele.com" style="display:inline-block;background:#b00020;color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:10px;font-weight:bold">לסטודיו של מקפלא</a></p>
+  <p dir="rtl" style="direction:rtl;text-align:right">כל ההסברים ותשובות לשאלות נפוצות נמצאים כאן:<br><a href="https://www.mekapele.com/faq" style="color:#7a0016">www.mekapele.com/faq</a></p>
+  <p dir="rtl" style="direction:rtl;text-align:right">ואם משהו לא ברור, אני זמינה לשאלות במייל הזה. פשוט עונים לי כאן.</p>
+  <p dir="rtl" style="direction:rtl;text-align:right">תודה על התמיכה באומנות ישראלית, ויצירה מהנה!<br>להב</p>
+  <hr style="border:none;border-top:1px solid #dddddd;margin:24px 0 12px">
+  <p dir="rtl" style="direction:rtl;text-align:right;font-size:12px;color:#888">המנוי מתחדש כל חודש. אפשר לבטל מתי שרוצים: <a href="https://www.mekapele.com/cancel" style="color:#888">www.mekapele.com/cancel</a></p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
+`;
+}
+
+/**
+ * Hands the email to the Make scenario that sends it from hi@liloubooks.com
+ * (WELCOME_EMAIL_HOOK_URL, a Make custom webhook). Does nothing until that
+ * env var is set. Never throws - a failed email must not fail the payment.
+ */
+export async function sendWelcomeEmail(to: string, fullName?: string): Promise<string> {
+  const hook = process.env.WELCOME_EMAIL_HOOK_URL;
+  if (!hook) return "מייל תודה: לא הוגדר WELCOME_EMAIL_HOOK_URL";
+  try {
+    const res = await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject: WELCOME_SUBJECT, html: welcomeHtml(fullName) }),
+    });
+    return res.ok ? `מייל תודה נשלח ל-${to}` : `מייל תודה נכשל (${res.status})`;
+  } catch (e) {
+    return `מייל תודה נכשל: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}

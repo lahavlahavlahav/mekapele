@@ -2,34 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MONTHLY_PLAN } from "@/lib/pricing";
 import Footer from "@/components/Footer";
+import Disclosure from "@/components/ui/Disclosure";
+import JsonLd from "@/components/JsonLd";
+import { ALL_FAQS, FAQ_GROUPS, faqJsonLd } from "@/lib/faq";
 
 export const metadata: Metadata = {
   title: "שאלות נפוצות — Mekapele",
   description: "איך עובד המנוי החודשי, מה ההבדל בין שיטות הקיפול, ומה זו צביעה.",
 };
-
-const FAQS = [
-  {
-    q: "איך עובד המנוי?",
-    a: `מנוי חודשי עולה ₪${MONTHLY_PLAN.priceIls} ומעניק ${MONTHLY_PLAN.days} יום של תבניות ללא הגבלה - כמה תמונות, כמה שיטות וכמה עדכונים שרוצים. התשלום מאובטח ומתבצע דרך Grow.`,
-  },
-  {
-    q: "המנוי מתחדש לבד?",
-    a: "כן, המנוי הוא הוראת קבע חודשית ומתחדש כל חודש. אפשר לבטל מתי שרוצים בעמוד ביטול מנוי (קישור בתחתית כל עמוד) - לא יהיו חיובים נוספים, והחודש ששולם נשאר פעיל עד סופו.",
-  },
-  {
-    q: "מה ההבדל בין סימון וקיפול (MMF) לבין גזירה וקיפול?",
-    a: "בסימון וקיפול (MMF) מסמנים קו אחד — או כמה קווים, במצב Multiline — על כל עמוד ומקפלים לאורכו, בלי לחתוך את הנייר בכלל. זו השיטה הבטוחה, המהירה והפשוטה יותר לעבודה. בגזירה וקיפול, בנוסף לסימון גם חותכים חלק מהעמוד לפני הקיפול, מה שמאפשר תבליט חד ומדויק יותר, אך דורש זהירות רבה יותר וכלי חיתוך מתאים.",
-  },
-  {
-    q: "מה זו צביעה?",
-    a: "שיטה חדשה: במקום לגזור, צובעים. מסמנים בכל דף את אותם זוגות סימונים כמו בגזירה וקיפול, אבל במקום לגזור ביניהם צובעים את קצה הדף בצבע שבחרתם (טוש, צבע אקרילי או ספוג). הקטעים הצבועים יחד יוצרים את התמונה בצבע על חזית הספר. בוחרים את הצבע בהגדרות ורואים אותו מיד בתצוגת ה-3D.",
-  },
-  {
-    q: "איזו שיטת קיפול כדאי לי לבחור?",
-    a: "אם זו הפעם הראשונה שלכם, או שאתם מחפשים תהליך מהיר ובטוח — התחילו בסימון וקיפול (MMF). אם חשוב לכם תבליט חד וברור יותר ואתם כבר בטוחים בעבודה עם סכין גזירה — גזירה וקיפול תיתן תוצאה מרשימה יותר. רוצים צבע ובלי לחתוך את הספר? צביעה.",
-  },
-];
 
 export default function FaqPage() {
   return (
@@ -42,15 +22,16 @@ export default function FaqPage() {
         <p className="text-[var(--ink-soft)]">כל מה שצריך לדעת על תבניות ועל המנוי.</p>
       </header>
 
-      <div className="space-y-4">
-        {FAQS.map((item) => (
-          <section
-            key={item.q}
-            className="rounded-[var(--radius)] p-5"
-            style={{ background: "var(--paper-2)", border: "1px solid var(--line)" }}
-          >
-            <h2 className="font-display text-lg mb-2">{item.q}</h2>
-            <p className="text-[var(--ink-soft)] leading-relaxed">{item.a}</p>
+      <JsonLd data={faqJsonLd(ALL_FAQS)} />
+      <div className="space-y-6">
+        {FAQ_GROUPS.map((group) => (
+          <section key={group.title} className="space-y-2">
+            <h2 className="font-display text-xl">{group.title}</h2>
+            {group.items.map((item, i) => (
+              <Disclosure key={item.q} title={item.q} level="h3" size="md" defaultOpen={i === 0}>
+                <p>{item.a}</p>
+              </Disclosure>
+            ))}
           </section>
         ))}
 
@@ -58,7 +39,7 @@ export default function FaqPage() {
           className="rounded-[var(--radius)] p-5"
           style={{ background: "var(--paper-2)", border: "1px solid var(--line)" }}
         >
-          <h2 className="font-display text-lg mb-3">מחיר</h2>
+          <h2 className="font-display text-xl mb-3">מחיר</h2>
           <p className="flex justify-between items-baseline text-[var(--ink-soft)]">
             <span>
               <span className="font-semibold text-[var(--ink)]">{MONTHLY_PLAN.label}</span> - תבניות ללא

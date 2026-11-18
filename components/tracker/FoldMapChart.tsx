@@ -50,8 +50,18 @@ export default function FoldMapChart({
         return (
           <div key={ci} className="fold-map-page">
             <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="block">
-              <text x={width} y={12} textAnchor="end" fontSize={11} fill="var(--ink-soft)">
-                Top of page at right (bold line = top edge)
+              {/* direction=rtl so the Hebrew (and its parentheses) read right to left;
+                  in RTL, "start" anchors the text's right end at x. */}
+              <text
+                x={width}
+                y={12}
+                direction="rtl"
+                textAnchor="start"
+                fontSize={12}
+                fontWeight={600}
+                fill="var(--ink)"
+              >
+                התחל כאן (ליד הדף העליון)
               </text>
               {chunk.map((p, i) => {
                 const y = TOP_MARGIN + i * ROW_HEIGHT;

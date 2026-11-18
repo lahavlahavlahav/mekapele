@@ -8,7 +8,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/components/AuthProvider";
 import { GROW_MONTHLY_PAYMENT_URL, MONTHLY_PLAN } from "@/lib/pricing";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 
@@ -20,7 +19,6 @@ export default function SubscribeModal({
   /** Optional line explaining why the modal opened (e.g. trying to generate without a pass). */
   reason?: string;
 }) {
-  const { user } = useAuth();
   const { status, refresh } = useSubscription();
   // Grow opens in a new tab and doesn't always send the buyer back, so this
   // tab waits for the webhook: poll the pass until it turns active.
@@ -90,19 +88,8 @@ export default function SubscribeModal({
           className="mb-4 text-sm rounded-lg px-3 py-2.5"
           style={{ background: "rgba(122,154,130,0.14)" }}
         >
-          <span className="font-semibold">חשוב:</span> בדף התשלום יש להזין את אותו
-          אימייל שאיתו נכנסים לאתר
-          {user?.email ? (
-            <>
-              {" - "}
-              <span dir="ltr" className="font-semibold">
-                {user.email}
-              </span>
-            </>
-          ) : (
-            " (לא מחוברים? התחברו אחר כך עם אותו אימייל)"
-          )}
-          . כך המנוי מופעל אוטומטית תוך דקה מהתשלום.
+          <span className="font-semibold">חשוב:</span> בדף התשלום יש להזין את המייל
+          שאתם נכנסים איתו לאתר. כך המנוי מופעל אוטומטית תוך דקה מהתשלום.
         </p>
 
         <a

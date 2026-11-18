@@ -10,7 +10,12 @@ export const WELCOME_SUBJECT = "תודה שהצטרפת למקפלא!";
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/** First name only ("מיכל מוניץ" -> "מיכל"); no name -> just "היי,". */
+/**
+ * First name only ("מיכל מוניץ" -> "מיכל"); no name -> just "היי,".
+ * The sign-off shares a paragraph with the text above it, and a hidden
+ * per-send token ends the body, so Gmail doesn't fold the ending away
+ * behind "..." as repeated signature-like content.
+ */
 export function welcomeHtml(fullName?: string): string {
   const first = (fullName ?? "").trim().split(/\s+/)[0] ?? "";
   const greeting = first ? `היי ${escapeHtml(first)},` : "היי,";
@@ -27,10 +32,9 @@ export function welcomeHtml(fullName?: string): string {
   <p dir="rtl" style="direction:rtl;text-align:right"><strong>תודה רבה שרכשת מנוי למקפלא!</strong><br>המנוי שלך פעיל, ואפשר להתחיל ליצור תבניות ללא הגבלה:</p>
   <p dir="rtl" style="direction:rtl;text-align:right"><a href="https://www.mekapele.com" style="display:inline-block;background:#b00020;color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:10px;font-weight:bold">לסטודיו של מקפלא</a></p>
   <p dir="rtl" style="direction:rtl;text-align:right">כל ההסברים ותשובות לשאלות נפוצות נמצאים כאן:<br><a href="https://www.mekapele.com/faq" style="color:#7a0016">www.mekapele.com/faq</a></p>
-  <p dir="rtl" style="direction:rtl;text-align:right">ואם משהו לא ברור, אני זמינה לשאלות במייל הזה. פשוט עונים לי כאן.</p>
-  <p dir="rtl" style="direction:rtl;text-align:right">תודה על התמיכה באומנות ישראלית, ויצירה מהנה!<br>להב</p>
-  <hr style="border:none;border-top:1px solid #dddddd;margin:24px 0 12px">
-  <p dir="rtl" style="direction:rtl;text-align:right;font-size:12px;color:#888">המנוי מתחדש כל חודש. אפשר לבטל מתי שרוצים: <a href="https://www.mekapele.com/cancel" style="color:#888">www.mekapele.com/cancel</a></p>
+  <p dir="rtl" style="direction:rtl;text-align:right">ואם משהו לא ברור, אני זמינה לשאלות במייל הזה. פשוט עונים לי כאן.<br><br>תודה על התמיכה באומנות ישראלית, ויצירה מהנה!<br>להב</p>
+  <p dir="rtl" style="direction:rtl;text-align:right;font-size:12px;color:#888;margin-top:24px">המנוי מתחדש כל חודש. אפשר לבטל מתי שרוצים: <a href="https://www.mekapele.com/cancel" style="color:#888">www.mekapele.com/cancel</a></p>
+  <span style="display:none;font-size:0;line-height:0;max-height:0;overflow:hidden">${Date.now().toString(36)}</span>
 </td></tr>
 </table>
 </td></tr>

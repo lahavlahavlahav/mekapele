@@ -30,8 +30,10 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Headings: the same modern sans as the body text, just bolder. */
 .font-display {
-  font-family: "Georgia", "Times New Roman", ui-serif, serif;
+  font-family: inherit;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 .tabular { font-variant-numeric: tabular-nums; }

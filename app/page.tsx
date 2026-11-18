@@ -96,7 +96,7 @@ function HomeIntro() {
       </div>
 
       <div className="space-y-3">
-        <Disclosure title="מי עומדת מאחורי מקפלא?">
+        <Disclosure title="מי עומדת מאחורי מקפלא?" level="h3" size="md">
           <p>
             מקפלא נבנה על ידי{" "}
             <Link href="/blog/lahav-barak" className="underline font-semibold" style={linkStyle}>
@@ -110,7 +110,7 @@ function HomeIntro() {
           </p>
         </Disclosure>
 
-        <Disclosure title="מהבלוג">
+        <Disclosure title="מהבלוג" level="h3" size="md">
           <ul className="space-y-2">
             {POSTS.map((p) => (
               <li key={p.slug} lang={p.lang}>

@@ -29,7 +29,7 @@ export default function Disclosure({
       <summary className={size === "lg" ? "px-5 py-4" : "px-4 py-3"}>
         <Heading
           className={`disclosure-title ${
-            size === "lg" ? "font-display text-xl" : "font-semibold text-base"
+            size === "lg" ? "font-bold text-lg" : "font-semibold text-base"
           } leading-snug`}
         >
           {title}

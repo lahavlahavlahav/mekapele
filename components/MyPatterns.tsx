@@ -21,6 +21,7 @@ import InfoTip from "./ui/InfoTip";
 import { LoginGate, UserBadge } from "./LoginGate";
 import SubscriptionBadge from "./subscription/SubscriptionBadge";
 import Footer from "./Footer";
+import HomeLogo from "@/components/HomeLogo";
 
 export default function MyPatterns() {
   const { user, loading: authLoading } = useAuth();
@@ -79,8 +80,7 @@ export default function MyPatterns() {
         >
           → חזרה
         </button>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-9 w-auto" />
+        <HomeLogo className="h-9 w-auto" />
         <div className="flex-1">
           <h1 className="font-display text-2xl">התבניות שלי</h1>
           <p className="text-sm text-[var(--ink-soft)]">

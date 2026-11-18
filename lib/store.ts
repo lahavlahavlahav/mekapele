@@ -37,6 +37,8 @@ interface AppState {
   thumbnail: string | null; // small (480px) data URL, for lightweight previews
   /** Higher-resolution (up to 1600px, matching the algorithm's own working image) data URL - used by GridEditor for precision editing, and to restore ConfigPanel's preview when navigating back to settings without a fresh upload. */
   sourceImage: string | null;
+  /** The image on the settings screen, remembered from the moment it's uploaded (even before a pattern is generated), so leaving and coming back - logo, back button, blog, refresh - keeps it. */
+  draftImage: string | null;
   view: AppView;
 
   // Tracker progress
@@ -50,6 +52,7 @@ interface AppState {
   setConfig: (patch: Partial<BookConfig>) => void;
   loadPattern: (pattern: FoldingPattern, thumbnail: string | null, sourceImage?: string | null) => void;
   setView: (view: AppView) => void;
+  setDraftImage: (image: string | null) => void;
 
   goToPage: (page: number) => void;
   /**
@@ -90,6 +93,7 @@ export const useStore = create<AppState>()(
       originalPages: null,
       thumbnail: null,
       sourceImage: null,
+      draftImage: null,
       view: "config",
       currentPage: 1,
       foldedPages: [],
@@ -104,6 +108,7 @@ export const useStore = create<AppState>()(
           originalPages: pattern.pages.map((p) => ({ ...p, marksCm: [...p.marksCm] })),
           thumbnail,
           sourceImage,
+          draftImage: sourceImage,
           config: pattern.config,
           view: "tracker",
           currentPage: 1,
@@ -111,6 +116,7 @@ export const useStore = create<AppState>()(
         }),
 
       setView: (view) => set({ view }),
+      setDraftImage: (draftImage) => set({ draftImage }),
 
       goToPage: (page) => {
         const max = get().pattern?.pages.length ?? 1;
@@ -184,6 +190,7 @@ export const useStore = create<AppState>()(
           originalPages: null,
           thumbnail: null,
           sourceImage: null,
+          draftImage: null,
           view: "config",
           currentPage: 1,
           foldedPages: [],
@@ -197,6 +204,7 @@ export const useStore = create<AppState>()(
             originalPages: null,
             thumbnail: null,
             sourceImage: null,
+            draftImage: null,
             view: "config",
             currentPage: 1,
             foldedPages: [],
@@ -214,6 +222,7 @@ export const useStore = create<AppState>()(
         originalPages: s.originalPages,
         thumbnail: s.thumbnail,
         sourceImage: s.sourceImage,
+        draftImage: s.draftImage,
         view: s.view,
         currentPage: s.currentPage,
         foldedPages: s.foldedPages,

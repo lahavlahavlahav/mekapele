@@ -15,6 +15,7 @@ import { savePattern } from "@/lib/firestore/patterns";
 import SubscriptionBadge from "./subscription/SubscriptionBadge";
 import SubscribeModal from "./subscription/SubscribeModal";
 import { useSubscription } from "@/lib/hooks/useSubscription";
+import HomeLogo from "@/components/HomeLogo";
 
 // Three.js touches the DOM/WebGL - never render it on the server.
 const Preview3DModal = dynamic(() => import("./Preview3D/Preview3DModal"), { ssr: false });
@@ -45,7 +46,8 @@ const UNIT_TO_CM: Record<HeightUnit, number> = { cm: 1, mm: 0.1, in: 2.54 };
  * engines and first-time visitors), shown under the tool, above the footer.
  */
 export default function ConfigPanel({ children }: { children?: ReactNode }) {
-  const { config, setConfig, loadPattern, pattern, sourceImage, thumbnail, foldedPages, setView } = useStore();
+  const { config, setConfig, loadPattern, pattern, sourceImage, draftImage, setDraftImage, thumbnail, foldedPages, setView } =
+    useStore();
   const { user, getToken } = useAuth();
   const { refresh: refreshSubscription } = useSubscription();
   const [file, setFile] = useState<File | null>(null);
@@ -56,9 +58,10 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
   // "הגדרות" to tweak page height and come back. Runs once on mount; a
   // genuinely new file picked via onFile always takes priority afterward.
   useEffect(() => {
-    if (file || !sourceImage) return;
-    setPreviewUrl(sourceImage);
-    fetch(sourceImage)
+    const remembered = draftImage ?? sourceImage;
+    if (file || !remembered) return;
+    setPreviewUrl(remembered);
+    fetch(remembered)
       .then((r) => r.blob())
       .then((blob) => setFile(new File([blob], "uploaded-image.png", { type: blob.type || "image/png" })))
       .catch(() => {});
@@ -99,6 +102,15 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
     setShowGate(false);
     setFile(f);
     setPreviewUrl(f ? URL.createObjectURL(f) : null);
+    // Remember it right away (same size/format as the generate step uses), so
+    // the logo, the back button or a refresh bring the settings back with it.
+    if (!f) {
+      setDraftImage(null);
+      return;
+    }
+    makeThumbnail(f, 1600, "image/jpeg", 0.88)
+      .then((img) => setDraftImage(img))
+      .catch(() => {});
   };
 
   function validate(): boolean {
@@ -199,8 +211,7 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <header className="flex items-center gap-3 mb-8">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-9 w-auto" />
+        <HomeLogo className="h-9 w-auto" />
         <div className="flex-1">
           <p className="text-sm text-[var(--ink-soft)]">ע״י האמנית והיזמית להב ברק</p>
         </div>

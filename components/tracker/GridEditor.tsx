@@ -10,6 +10,7 @@ import {
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 import InfoTip from "../ui/InfoTip";
 import { MODE_LABEL, type FoldingPattern } from "@/lib/types";
+import HomeLogo from "@/components/HomeLogo";
 
 type ViewMode = "single" | "table";
 
@@ -182,8 +183,7 @@ export default function GridEditor() {
         style={{ borderColor: "var(--line)" }}
       >
         <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-7 w-auto" />
+          <HomeLogo className="h-7 w-auto" />
           <div className="leading-tight">
             <p className="eyebrow flex items-center gap-1.5">
               עריכת סימונים ידנית

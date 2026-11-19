@@ -14,6 +14,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { DEFAULT_PAINT_COLOR, type FoldingPattern, type PageMeasurement } from "@/lib/types";
 import { foldMapRows, pairUp } from "@/lib/foldMap";
+import { SITE_URL } from "@/lib/site";
 
 /** Load the logo once as a data URL so jsPDF can embed it. */
 async function loadLogo(): Promise<{
@@ -168,6 +169,8 @@ export async function exportPatternPdf(
   const drawHeader = () => {
     if (logo) {
       doc.addImage(logo.dataUrl, "PNG", 14, 8, logoW, logoH);
+      // Clickable logo → homepage.
+      doc.link(14, 8, logoW, logoH, { url: SITE_URL });
     }
     doc.setFontSize(14);
     doc.text(hebrew ? vis(HE.brand) : "Mekapele", pageW - 14, 16, { align: "right" });

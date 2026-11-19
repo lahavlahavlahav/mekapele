@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import FoldMapChart from "./tracker/FoldMapChart";
 import InfoTip from "./ui/InfoTip";
 import { DEFAULT_PAINT_COLOR } from "@/lib/types";
+import { SITE_URL } from "@/lib/site";
 
 /** Mode 1 — Print-Ready Export: branded table, or a visual fold-map chart. */
 export default function PrintExport() {
@@ -81,8 +82,10 @@ export default function PrintExport() {
 
       {/* Branded header — embedded in the printed document */}
       <div className="flex items-center gap-4 pb-4 mb-4 border-b" style={{ borderColor: "var(--ink)" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-12 w-auto" />
+        <a href={SITE_URL} target="_blank" rel="noopener" aria-label="מקפלא - לעמוד הראשי">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-12 w-auto" />
+        </a>
         <div>
           <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
           <p className="text-sm text-[var(--ink-soft)] tabular">

@@ -92,7 +92,6 @@ export default function FocusCard({
               <Mark label={mode === "MMF" ? "עליון" : mode === "PAINT" ? "צביעה מ-" : "גזירה מ-"} value={a} />
               {b !== null && (
                 <>
-                  <span className="text-[var(--coral)] text-2xl">→</span>
                   <Mark label={mode === "MMF" ? "תחתון" : mode === "PAINT" ? "צביעה עד" : "גזירה עד"} value={b} />
                 </>
               )}

@@ -91,7 +91,9 @@ export default function PrintExport() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-12 w-auto" />
           </a>
-          <DesignImage pattern={pattern} image={thumbnail} />
+          <a href={SITE_URL} target="_blank" rel="noopener" aria-label="מקפלא - לעמוד הראשי" className="max-w-[40%]">
+            <DesignImage pattern={pattern} image={thumbnail} />
+          </a>
         </div>
         <div>
           <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
@@ -212,5 +214,5 @@ function DesignImage({ pattern, image }: { pattern: FoldingPattern; image: strin
   }, [image, pattern.config.autoThreshold]);
   if (!src) return <DesignSilhouette pattern={pattern} />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="תמונת הדגם" className="h-12 w-auto max-w-[40%] object-contain" />;
+  return <img src={src} alt="תמונת הדגם" className="h-12 w-auto max-w-full object-contain" />;
 }

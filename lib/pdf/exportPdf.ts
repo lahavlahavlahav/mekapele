@@ -186,11 +186,13 @@ export async function exportPatternPdf(
         h = (cutout.h / cutout.w) * w;
       }
       doc.addImage(cutout.dataUrl, "PNG", pageW - 14 - w, 8 + (14 - h) / 2, w, h);
+      doc.link(pageW - 14 - w, 8 + (14 - h) / 2, w, h, { url: SITE_URL });
     } else if (silhouette.length) {
       const w = Math.max(...silhouette.map((r) => r.x + r.w));
       const x0 = pageW - 14 - w;
       doc.setFillColor(0, 0, 0);
       for (const r of silhouette) doc.rect(x0 + r.x, 8 + r.y, r.w, r.h, "F");
+      doc.link(x0, 8, w, 14, { url: SITE_URL });
     }
     if (logo) {
       doc.addImage(logo.dataUrl, "PNG", 14, 8, logoW, logoH);

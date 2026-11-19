@@ -212,9 +212,7 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <header className="flex items-center gap-3 mb-8">
         <HomeLogo className="h-9 w-auto" />
-        <div className="flex-1">
-          <p className="text-sm text-[var(--ink-soft)]">ע״י האמנית והיזמית להב ברק</p>
-        </div>
+        <div className="flex-1" />
         <button
           onClick={() => setView("patterns")}
           className="text-sm px-3 py-1.5 rounded-lg border"

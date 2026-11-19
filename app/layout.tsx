@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
+import AccessibilityNote from "@/components/AccessibilityNote";
 import JsonLd from "@/components/JsonLd";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import CookieBanner from "@/components/CookieBanner";
@@ -61,6 +62,7 @@ export default function RootLayout({
         <JsonLd data={siteJsonLd()} />
         <AuthProvider>{children}</AuthProvider>
         <AccessibilityWidget />
+        <AccessibilityNote />
         <CookieBanner />
         <GoogleAnalytics />
       </body>

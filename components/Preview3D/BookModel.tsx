@@ -223,11 +223,6 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
   const leafCount = pages.length;
   const pageHeightCm = config.pageHeightCm;
   const fullDepth = pageHeightCm * 0.62;
-  // Was 0.16: folded-flat sections receded almost all the way to the spine,
-  // so most of a page's height (everywhere it isn't actively marked) nearly
-  // vanished into the spine core - the whole page needs to stay visually
-  // present, with the marked band still reading as a clear further bulge.
-  const foldedDepth = fullDepth * 0.34;
   const thickness = Math.max(0.03, (pageHeightCm * 0.4) / leafCount);
 
   const openAngleRad = THREE.MathUtils.clamp(openAngleDeg, 0, 180) * DEG2RAD;
@@ -245,10 +240,10 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
       pages.map((page) => {
         const shape = isPaint
           ? buildFlatLeafShape(pageHeightCm, fullDepth)
-          : buildLeafShape(page, { pageHeightCm, foldedDepth, fullDepth, mode: config.mode });
+          : buildLeafShape(page, { pageHeightCm, fullDepth, mode: config.mode });
         return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
       }),
-    [pages, pageHeightCm, foldedDepth, fullDepth, thickness, config.mode, isPaint]
+    [pages, pageHeightCm, fullDepth, thickness, config.mode, isPaint]
   );
 
   // Painted bands: a bit thicker than the leaf (centered on it) so the color
@@ -298,7 +293,12 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
   // stayed oversized at small angles and stuck out past the closed book.
   // Kept slim (real book spines are narrow relative to page depth) - just
   // enough to plug the wedge, not a thick drum.
-  const spineRadius = Math.max(0.01, fullDepth * 0.22 * Math.sin(coverHalfAngle));
+  // MMF / Cut & Fold leaves now reach the spine along their whole height
+  // (corner folds run to the spine, cut pages stay full), so there is no
+  // wedge to plug - only a thin binding line, or it pokes out above/below.
+  const spineRadius = isPaint
+    ? Math.max(0.01, fullDepth * 0.22 * Math.sin(coverHalfAngle))
+    : Math.max(0.01, fullDepth * 0.03 * Math.sin(coverHalfAngle));
 
   // Footprint of the fanned block on the table (X = sideways spread, Z = forward reach).
   // Floored so the stand doesn't visually vanish as the book approaches fully closed.

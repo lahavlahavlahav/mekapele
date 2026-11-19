@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import BookModel, { DEFAULT_COVER_COLOR } from "./BookModel";
-import type { FoldingPattern } from "@/lib/types";
+import type { FoldingMode, FoldingPattern } from "@/lib/types";
 
 interface Preview3DModalProps {
   pattern: FoldingPattern;
@@ -12,11 +12,15 @@ interface Preview3DModalProps {
   onClose: () => void;
 }
 
+const DEFAULT_OPEN_ANGLE: Record<FoldingMode, number> = { MMF: 175, CUT_AND_FOLD: 110, PAINT: 90 };
+
 /** Fullscreen modal hosting the interactive 3D book preview. */
 export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Preview3DModalProps) {
-  // Every technique opens at 90deg by default (owner's choice); the slider
-  // below still goes from 0 (closed) to 180 (flat open).
-  const [openAngleDeg, setOpenAngleDeg] = useState(90);
+  // Default opening per technique, matching how each is displayed in real
+  // life: MMF fanned almost flat (hexagonal relief), Cut & Fold fanned so the
+  // fore-edges form one continuous curved wall, PAINT at 90deg (owner's
+  // choice). The slider still goes from 0 (closed) to 180 (flat open).
+  const [openAngleDeg, setOpenAngleDeg] = useState(DEFAULT_OPEN_ANGLE[pattern.config.mode] ?? 90);
   // Only visible when no cover image is set - an uploaded cover always wins.
   const [coverColor, setCoverColor] = useState(DEFAULT_COVER_COLOR);
   const pageHeightCm = pattern.config.pageHeightCm;
@@ -65,10 +69,10 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           dpr={[1, 2]}
           // 0.77x radius (a previous tightening) opened right on top of the
           // book, confusing on first load since the whole object didn't fit
-          // without the user manually zooming out. ~1.3x is a middle ground:
+          // without the user manually zooming out. ~1.6x (wider fans now) is a middle ground:
           // close enough that the page-fan still reads as the subject, but
           // the whole book (covers + base) is visible by default.
-          camera={{ position: [radius * 0.12, radius * 0.19, radius * 1.3], fov: 40 }}
+          camera={{ position: [radius * 0.1, radius * 0.12, radius * 1.6], fov: 40 }}
         >
           <color attach="background" args={["#2a3142"]} />
           <ambientLight intensity={0.55} />
@@ -76,9 +80,19 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
             position={[radius, radius * 1.5, radius]}
             intensity={1.1}
             castShadow
-            shadow-mapSize={[1024, 1024]}
+            shadow-mapSize={[2048, 2048]}
+            shadow-bias={-0.0004}
+            shadow-normalBias={0.02}
+            shadow-camera-left={-radius}
+            shadow-camera-right={radius}
+            shadow-camera-top={radius}
+            shadow-camera-bottom={-radius}
+            shadow-camera-far={radius * 6}
           />
           <directionalLight position={[-radius, radius * 0.5, -radius]} intensity={0.35} />
+          {/* Soft front fill: folded relief faces partly downward, which the
+              key light above leaves too dark without it. */}
+          <directionalLight position={[-radius * 0.4, -radius * 0.2, radius * 2]} intensity={0.3} />
 
           <Suspense fallback={null}>
             <BookModel

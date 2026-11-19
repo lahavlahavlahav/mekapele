@@ -104,6 +104,7 @@ async function registerHebrewFont(doc: jsPDF): Promise<boolean> {
 
 const HE = {
   brand: "מקפלא",
+  credit: "© להב ברק פיסול בספרים",
   page: "עמוד",
   top: "סימון עליון",
   bottom: "סימון תחתון",
@@ -172,8 +173,6 @@ export async function exportPatternPdf(
       // Clickable logo → homepage.
       doc.link(14, 8, logoW, logoH, { url: SITE_URL });
     }
-    doc.setFontSize(14);
-    doc.text(hebrew ? vis(HE.brand) : "Mekapele", pageW - 14, 16, { align: "right" });
     doc.setFontSize(9);
     doc.setTextColor(120);
     const lines = config.mmfLines ?? 1;
@@ -261,6 +260,17 @@ export async function exportPatternPdf(
       alternateRowStyles: { fillColor: [246, 241, 231] },
       didDrawPage: drawHeader,
     });
+  }
+
+  // Small credit line at the bottom-right of every page.
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFont(hebrew ? FONT : "helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.text(hebrew ? vis(HE.credit) : "© Lahav Barak Book Sculpture", pageW - 14, pageH - 6, { align: "right" });
+    doc.setTextColor(0);
   }
 
   const safe = name.replace(/[^\w\-]+/g, "_").slice(0, 40) || "pattern";

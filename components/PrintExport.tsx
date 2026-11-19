@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import FoldMapChart from "./tracker/FoldMapChart";
 import InfoTip from "./ui/InfoTip";
 import { DEFAULT_PAINT_COLOR } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
 import { silhouetteRects } from "@/lib/silhouette";
+import { makeCutout } from "@/lib/imageCutout";
 import type { FoldingPattern } from "@/lib/types";
 
 /** Mode 1 — Print-Ready Export: branded table, or a visual fold-map chart. */
 export default function PrintExport() {
-  const { pattern, setView } = useStore();
+  const { pattern, setView, thumbnail } = useStore();
   const [layout, setLayout] = useState<"table" | "map">("table");
   if (!pattern) return null;
 
@@ -90,7 +91,7 @@ export default function PrintExport() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-12 w-auto" />
           </a>
-          <DesignSilhouette pattern={pattern} />
+          <DesignImage pattern={pattern} image={thumbnail} />
         </div>
         <div>
           <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
@@ -197,4 +198,19 @@ function DesignSilhouette({ pattern }: { pattern: FoldingPattern }) {
       ))}
     </svg>
   );
+}
+
+/** The uploaded image without its background (falls back to the silhouette). */
+function DesignImage({ pattern, image }: { pattern: FoldingPattern; image: string | null }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    makeCutout(image, pattern.config.autoThreshold).then((c) => alive && setSrc(c?.dataUrl ?? null));
+    return () => {
+      alive = false;
+    };
+  }, [image, pattern.config.autoThreshold]);
+  if (!src) return <DesignSilhouette pattern={pattern} />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="תמונת הדגם" className="h-12 w-auto max-w-[40%] object-contain" />;
 }

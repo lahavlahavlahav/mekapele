@@ -184,7 +184,7 @@ export default function MyPatterns() {
                     מצב סדנה
                   </button>
                   <button
-                    onClick={() => exportPatternPdf(sp.pattern, sp.name)}
+                    onClick={() => exportPatternPdf(sp.pattern, sp.name, "table", sp.thumbnail)}
                     className="flex-1 min-w-[6rem] py-2 rounded-lg font-semibold border text-sm"
                     style={{ borderColor: "var(--line)" }}
                   >

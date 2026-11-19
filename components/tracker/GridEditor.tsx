@@ -228,7 +228,7 @@ export default function GridEditor() {
                 טבלה
               </button>
               <button
-                onClick={() => exportPatternPdf(pattern, "תבנית")}
+                onClick={() => exportPatternPdf(pattern, "תבנית", "table", thumbnail)}
                 className="text-sm px-3 py-2 rounded-lg border"
                 style={{ borderColor: "var(--line)" }}
               >

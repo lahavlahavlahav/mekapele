@@ -108,14 +108,14 @@ export default function WorkshopTracker() {
             }
           />
           <button
-            onClick={() => exportPatternPdf(pattern, "תבנית", "table")}
+            onClick={() => exportPatternPdf(pattern, "תבנית", "table", thumbnail)}
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--line)" }}
           >
             ייצוא טבלה (PDF)
           </button>
           <button
-            onClick={() => exportPatternPdf(pattern, "תבנית", "map")}
+            onClick={() => exportPatternPdf(pattern, "תבנית", "map", thumbnail)}
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--line)" }}
           >

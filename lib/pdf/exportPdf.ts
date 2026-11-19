@@ -16,6 +16,7 @@ import { DEFAULT_PAINT_COLOR, type FoldingPattern, type PageMeasurement } from "
 import { foldMapRows, pairUp } from "@/lib/foldMap";
 import { SITE_URL } from "@/lib/site";
 import { silhouetteRects } from "@/lib/silhouette";
+import { makeCutout } from "@/lib/imageCutout";
 
 /** Load the logo once as a data URL so jsPDF can embed it. */
 async function loadLogo(): Promise<{
@@ -133,7 +134,9 @@ const HE = {
 export async function exportPatternPdf(
   pattern: FoldingPattern,
   name: string,
-  layout: "table" | "map" = "table"
+  layout: "table" | "map" = "table",
+  /** The uploaded image (data URL); shown top-right without its background. */
+  image?: string | null
 ): Promise<void> {
   const { config, pages } = pattern;
   // Single-line MMF always carries exactly one [top, bottom] pair per leaf,
@@ -169,11 +172,21 @@ export async function exportPatternPdf(
 
   // Small background-free silhouette of the design, top-right, so a printed
   // pattern can be matched to its image at a glance.
-  const silhouette = silhouetteRects(pattern, 60, 14);
+  const cutout = await makeCutout(image, config.autoThreshold);
+  const silhouette = cutout ? [] : silhouetteRects(pattern, 60, 14);
 
   // Header drawn on every page.
   const drawHeader = () => {
-    if (silhouette.length) {
+    if (cutout) {
+      // Same height as the logo, capped in width for very wide images.
+      let h = 14;
+      let w = (cutout.w / cutout.h) * h;
+      if (w > 60) {
+        w = 60;
+        h = (cutout.h / cutout.w) * w;
+      }
+      doc.addImage(cutout.dataUrl, "PNG", pageW - 14 - w, 8 + (14 - h) / 2, w, h);
+    } else if (silhouette.length) {
       const w = Math.max(...silhouette.map((r) => r.x + r.w));
       const x0 = pageW - 14 - w;
       doc.setFillColor(0, 0, 0);

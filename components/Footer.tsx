@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CookieSettingsLink } from "@/components/CookieBanner";
 
 const LINKS = [
   { href: "/blog", label: "בלוג פיסול ספרים" },
@@ -25,6 +26,7 @@ export default function Footer() {
           {link.label}
         </Link>
       ))}
+      <CookieSettingsLink className="text-[var(--ink-soft)] hover:underline" />
     </footer>
   );
 }

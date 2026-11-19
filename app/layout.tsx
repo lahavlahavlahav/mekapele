@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
 import JsonLd from "@/components/JsonLd";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { CREATOR, OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, siteJsonLd } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -59,6 +60,7 @@ export default function RootLayout({
         <JsonLd data={siteJsonLd()} />
         <AuthProvider>{children}</AuthProvider>
         <AccessibilityWidget />
+        <GoogleAnalytics />
       </body>
     </html>
   );

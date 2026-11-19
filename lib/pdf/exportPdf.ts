@@ -15,7 +15,7 @@ import autoTable from "jspdf-autotable";
 import { DEFAULT_PAINT_COLOR, type FoldingPattern, type PageMeasurement } from "@/lib/types";
 import { foldMapRows, pairUp } from "@/lib/foldMap";
 import { SITE_URL } from "@/lib/site";
-import { leafSourceBounds } from "@/lib/algorithm";
+import { silhouetteRects } from "@/lib/silhouette";
 
 /** Load the logo once as a data URL so jsPDF can embed it. */
 async function loadLogo(): Promise<{
@@ -169,7 +169,7 @@ export async function exportPatternPdf(
 
   // Small background-free silhouette of the design, top-right, so a printed
   // pattern can be matched to its image at a glance.
-  const silhouette = silhouetteRects(pattern, 50, 13);
+  const silhouette = silhouetteRects(pattern, 60, 14);
 
   // Header drawn on every page.
   const drawHeader = () => {
@@ -177,7 +177,7 @@ export async function exportPatternPdf(
       const w = Math.max(...silhouette.map((r) => r.x + r.w));
       const x0 = pageW - 14 - w;
       doc.setFillColor(0, 0, 0);
-      for (const r of silhouette) doc.rect(x0 + r.x, 4 + r.y, r.w, r.h, "F");
+      for (const r of silhouette) doc.rect(x0 + r.x, 8 + r.y, r.w, r.h, "F");
     }
     if (logo) {
       doc.addImage(logo.dataUrl, "PNG", 14, 8, logoW, logoH);
@@ -202,7 +202,7 @@ export async function exportPatternPdf(
           config.mode === "MMF" ? (lines > 1 ? `Multiline MMF (${lines} lines)` : "MMF")
           : config.mode === "PAINT" ? `Paint (${paint})` : "Cut & Fold"
         } | ${config.direction}`;
-    doc.text(vis(info), pageW - 14, 22, { align: "right" });
+    doc.text(vis(info), pageW - 14, 28, { align: "right" });
     doc.setTextColor(0);
   };
 
@@ -263,8 +263,8 @@ export async function exportPatternPdf(
     autoTable(doc, {
       head: rtl(head),
       body: rtl(body),
-      startY: 30,
-      margin: { top: 28, left: 14, right: 14 },
+      startY: 34,
+      margin: { top: 33, left: 14, right: 14 },
       styles: { font: hebrew ? FONT : "helvetica", fontSize, cellPadding: fontSize < 9 ? 0.8 : 1.5, halign: "center" },
       headStyles: { fillColor: [29, 36, 51], textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [246, 241, 231] },
@@ -310,7 +310,7 @@ function drawFoldMap(
   const marginRight = 14;
   const labelGutter = 14;
   const chartWidth = pageW - marginLeft - marginRight - labelGutter;
-  const top = 30;
+  const top = 37;
   const bottom = pageH - 14;
   const rowHeight = 5;
   const barHeight = 2.2;
@@ -352,42 +352,4 @@ function drawFoldMap(
     doc.setLineWidth(0.9);
     doc.line(topEdgeX, top - rowHeight / 2, topEdgeX, top + (chunk.length - 1) * rowHeight + rowHeight / 2);
   }
-}
-
-/**
- * The design rebuilt from its own fold marks (black bands on nothing), placed
- * at each leaf's exact source column so it looks like the uploaded image
- * minus its background. Scaled to fit maxW x maxH mm; coordinates are
- * relative to the box's top-left.
- */
-function silhouetteRects(
-  pattern: FoldingPattern,
-  maxW: number,
-  maxH: number
-): { x: number; y: number; w: number; h: number }[] {
-  const { pages, config, imageHeight } = pattern;
-  const pxPerCm = imageHeight / Math.max(0.1, config.verticalSpacingCm);
-  const bands: { x0: number; x1: number; lo: number; hi: number }[] = [];
-  pages.forEach((p, i) => {
-    if (p.isBlank) return;
-    const { startX, endX } = leafSourceBounds(pattern, i);
-    for (const [lo, hi] of pairUp(p.marksCm)) {
-      if (hi > lo) bands.push({ x0: startX, x1: endX, lo, hi });
-    }
-  });
-  if (!bands.length) return [];
-  const minX = Math.min(...bands.map((b) => b.x0));
-  const maxX = Math.max(...bands.map((b) => b.x1));
-  const minCm = Math.min(...bands.map((b) => b.lo));
-  const maxCm = Math.max(...bands.map((b) => b.hi));
-  const widthPx = Math.max(1, maxX - minX);
-  const heightPx = Math.max(1, (maxCm - minCm) * pxPerCm);
-  const s = Math.min(maxW / widthPx, maxH / heightPx);
-  return bands.map((b) => ({
-    x: (b.x0 - minX) * s,
-    y: (b.lo - minCm) * pxPerCm * s,
-    // A hair of overlap so adjacent columns don't show white seams.
-    w: (b.x1 - b.x0) * s + 0.05,
-    h: (b.hi - b.lo) * pxPerCm * s,
-  }));
 }

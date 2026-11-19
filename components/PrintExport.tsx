@@ -6,6 +6,8 @@ import FoldMapChart from "./tracker/FoldMapChart";
 import InfoTip from "./ui/InfoTip";
 import { DEFAULT_PAINT_COLOR } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
+import { silhouetteRects } from "@/lib/silhouette";
+import type { FoldingPattern } from "@/lib/types";
 
 /** Mode 1 — Print-Ready Export: branded table, or a visual fold-map chart. */
 export default function PrintExport() {
@@ -81,11 +83,15 @@ export default function PrintExport() {
       </div>
 
       {/* Branded header — embedded in the printed document */}
-      <div className="flex items-center gap-4 pb-4 mb-4 border-b" style={{ borderColor: "var(--ink)" }}>
-        <a href={SITE_URL} target="_blank" rel="noopener" aria-label="מקפלא - לעמוד הראשי">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-12 w-auto" />
-        </a>
+      <div className="pb-4 mb-4 border-b" style={{ borderColor: "var(--ink)" }}>
+        {/* Logo on the left, the design itself (same height) on the right. */}
+        <div dir="ltr" className="flex items-center justify-between gap-4 mb-3">
+          <a href={SITE_URL} target="_blank" rel="noopener" aria-label="מקפלא - לעמוד הראשי">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/mekapele-logo.png" alt="מקפלא - מחולל תבניות לפיסול ספרים" className="h-12 w-auto" />
+          </a>
+          <DesignSilhouette pattern={pattern} />
+        </div>
         <div>
           <h1 className="font-display text-xl">תבנית קיפול ספר</h1>
           <p className="text-sm text-[var(--ink-soft)] tabular">
@@ -170,5 +176,25 @@ export default function PrintExport() {
         />
       )}
     </div>
+  );
+}
+
+/** The design redrawn from its fold marks - black on transparent, h-12 like the logo. */
+function DesignSilhouette({ pattern }: { pattern: FoldingPattern }) {
+  const rects = silhouetteRects(pattern, 60, 14);
+  if (!rects.length) return null;
+  const w = Math.max(...rects.map((r) => r.x + r.w));
+  return (
+    <svg
+      viewBox={`0 0 ${w} 14`}
+      className="h-12 w-auto"
+      role="img"
+      aria-label="תמונת הדגם"
+      shapeRendering="crispEdges"
+    >
+      {rects.map((r, i) => (
+        <rect key={i} x={r.x} y={r.y} width={r.w} height={r.h} fill="#000" />
+      ))}
+    </svg>
   );
 }

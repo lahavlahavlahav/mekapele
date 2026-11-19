@@ -43,7 +43,7 @@ export default function AccessibilityNote() {
       <span
         aria-hidden
         className="absolute -top-2 left-1/2 -translate-x-1/2 w-14 h-4 rotate-2"
-        style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(0,0,0,0.06)" }}
+        style={{ background: "rgba(250,246,232,0.75)", boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }}
       />
       <div
         className="relative px-3.5 pt-4 pb-3 text-sm leading-snug"

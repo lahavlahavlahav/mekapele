@@ -6,6 +6,7 @@ import FocusCard from "./FocusCard";
 import ProgressBar from "./ProgressBar";
 import ImagePreview from "./ImagePreview";
 import PageJump from "./PageJump";
+import WorkshopSettings from "./WorkshopSettings";
 import { exportPatternPdf } from "@/lib/pdf/exportPdf";
 import InfoTip from "../ui/InfoTip";
 import { MODE_LABEL } from "@/lib/types";
@@ -204,6 +205,7 @@ export default function WorkshopTracker() {
               </span>
             </div>
           </div>
+          <WorkshopSettings />
         </aside>
       </main>
 

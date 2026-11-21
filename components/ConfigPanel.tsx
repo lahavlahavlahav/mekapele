@@ -16,9 +16,15 @@ import SubscriptionBadge from "./subscription/SubscriptionBadge";
 import SubscribeModal from "./subscription/SubscribeModal";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import HomeLogo from "@/components/HomeLogo";
+import { looksLikePhoto } from "@/lib/lineArt/lineArt";
 
 // Three.js touches the DOM/WebGL - never render it on the server.
 const Preview3DModal = dynamic(() => import("./Preview3D/Preview3DModal"), { ssr: false });
+const PhotoToLineArtModal = dynamic(() => import("./PhotoToLineArtModal"), { ssr: false });
+
+function isHeicFile(f: File) {
+  return /image\/hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
+}
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-lg border bg-[var(--paper)] tabular";
@@ -97,7 +103,47 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
     }
   };
 
-  const onFile = (f: File | null) => {
+  // A regular photo opens the photo → line-art converter first; the
+  // original stays available so it can be converted again later.
+  const [lineArtSource, setLineArtSource] = useState<File | null>(null);
+  const [originalPhoto, setOriginalPhoto] = useState<File | null>(null);
+  const [checkingPhoto, setCheckingPhoto] = useState(false);
+
+  const onPick = async (f: File | null) => {
+    if (!f) return acceptFile(null);
+    setError(null);
+    setCheckingPhoto(true);
+    try {
+      const { decodePhoto, canvasPixels } = await import("@/lib/lineArt/browser");
+      if (isHeicFile(f) || looksLikePhoto(canvasPixels(await decodePhoto(f)))) {
+        setOriginalPhoto(f);
+        setLineArtSource(f);
+        return;
+      }
+      setOriginalPhoto(null);
+    } catch {
+      /* fall through to the plain upload */
+    } finally {
+      setCheckingPhoto(false);
+    }
+    acceptFile(f);
+  };
+
+  /** "Use the photo as-is" - HEIC is converted to JPEG so the server can read it. */
+  const useOriginal = async (f: File) => {
+    setLineArtSource(null);
+    if (!isHeicFile(f)) return acceptFile(f);
+    try {
+      const { decodePhoto } = await import("@/lib/lineArt/browser");
+      const c = await decodePhoto(f);
+      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.9));
+      if (blob) acceptFile(new File([blob], f.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+    } catch {
+      setError("לא הצלחנו לקרוא את התמונה. נסו קובץ JPG או PNG.");
+    }
+  };
+
+  const acceptFile = (f: File | null) => {
     setError(null);
     setShowGate(false);
     setFile(f);
@@ -246,12 +292,40 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
           {file ? "בחרו תמונה אחרת" : "בחרו תמונה"}
           <input
             type="file"
-            accept="image/png,image/jpeg"
+            accept="image/*,.heic,.heif"
             className="hidden"
-            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              onPick(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
           />
         </label>
+        {checkingPhoto && <p className="mt-2 text-sm text-[var(--ink-soft)]">בודקים את התמונה…</p>}
+        {originalPhoto && !lineArtSource && (
+          <p className="mt-3 text-sm">
+            <button type="button" className="underline" onClick={() => setLineArtSource(originalPhoto)}>
+              ✏️ לכוון שוב את ציור הקווים
+            </button>
+          </p>
+        )}
+        {!previewUrl && (
+          <p className="mt-3 text-xs text-[var(--ink-soft)]">
+            יש לכם תמונה רגילה מהטלפון? העלו אותה, ואנחנו נסיר את הרקע ונהפוך אותה לציור קווים שחורים.
+          </p>
+        )}
       </div>
+
+      {lineArtSource && (
+        <PhotoToLineArtModal
+          file={lineArtSource}
+          onUse={(f) => {
+            setLineArtSource(null);
+            acceptFile(f);
+          }}
+          onUseOriginal={() => useOriginal(lineArtSource)}
+          onClose={() => setLineArtSource(null)}
+        />
+      )}
 
       {/* Core parameters */}
       <div className="grid sm:grid-cols-2 gap-5 mb-4">

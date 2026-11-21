@@ -20,7 +20,8 @@ import {
   warmUpBackgroundRemoval,
   type PreparedPhoto,
 } from "@/lib/lineArt/browser";
-import { applyOp, composeDrawing, stamp, type EditOp } from "@/lib/lineArt/edits";
+import { applyOp, composeDrawing, stamp, type EditOp, type Frame } from "@/lib/lineArt/edits";
+import { segmentParts } from "@/lib/lineArt/parts";
 
 type Tool = "none" | "erase" | "pen" | "fill";
 
@@ -28,7 +29,7 @@ const TOOL_HINT: Record<Tool, string> = {
   none: "",
   erase: "העבירו אצבע על מה שמיותר כדי למחוק.",
   pen: "ציירו בשחור, למשל כדי לסגור רווח בקו המתאר לפני מילוי.",
-  fill: "הקישו על אזור (שיער, חולצה, פריט) והוא כולו יתמלא בשחור, לפי הצבע שלו בתמונה.",
+  fill: "הקישו על אזור (שיער, חולצה, פריט) והוא כולו יתמלא בשחור. אצל אנשים המערכת מזהה לבד את גבולות השיער, הבגדים והפנים.",
 };
 
 type Stage = "decoding" | "background" | "drawing" | "ready" | "error";
@@ -79,6 +80,40 @@ export default function PhotoToLineArtModal({
   const composedRef = useRef<Uint8Array | null>(null);
   /** Subject mask (working res) that a fill may not leave; null = whole image. */
   const fillMaskRef = useRef<Uint8Array | null>(null);
+  /** Body-part map for the current crop (smart fill); null = colour fill only. */
+  const partsRef = useRef<{ for: PreparedPhoto; parts: Uint8Array | null } | null>(null);
+  const partsJob = useRef<Promise<void> | null>(null);
+  const [findingParts, setFindingParts] = useState(false);
+
+  const frame = (): Frame | null => {
+    const p = preparedRef.current;
+    if (!p) return null;
+    return { ...p, parts: partsRef.current?.for === p ? partsRef.current.parts : null };
+  };
+
+  /** Run part segmentation for the current crop (once), if not done yet. */
+  const ensureParts = useCallback(async () => {
+    const p = preparedRef.current;
+    if (!p) return;
+    if (partsRef.current?.for === p) return;
+    if (!partsJob.current) {
+      setFindingParts(true);
+      partsJob.current = segmentParts(p.crop)
+        .then((parts) => {
+          partsRef.current = { for: p, parts };
+        })
+        .catch((e) => {
+          // No smart fill (offline / unsupported): colour fill still works.
+          console.warn("part segmentation failed", e);
+          partsRef.current = { for: p, parts: null };
+        })
+        .finally(() => {
+          partsJob.current = null;
+          setFindingParts(false);
+        });
+    }
+    await partsJob.current;
+  }, []);
   const drawingRef = useRef(false);
 
   const redraw = useCallback(() => {
@@ -93,7 +128,8 @@ export default function PhotoToLineArtModal({
     const p = preparedRef.current;
     const ink = inkRef.current;
     if (!p || !ink) return;
-    composedRef.current = composeDrawing(ink, p, opsRef.current, fillMaskRef.current);
+    const parts = partsRef.current?.for === p ? partsRef.current.parts : null;
+    composedRef.current = composeDrawing(ink, { ...p, parts }, opsRef.current, fillMaskRef.current);
   }, []);
 
   /** Send work to the worker; resolves with the ink plane of the latest request only. */
@@ -134,11 +170,13 @@ export default function PhotoToLineArtModal({
       );
       if (!ink) return;
       inkRef.current = ink;
+      // Fills replay on the new crop with its own part map.
+      if (opsRef.current.some((o) => o.kind === "fill")) await ensureParts();
       recompose();
       setStage("ready");
       requestAnimationFrame(redraw);
     },
-    [redraw, recompose, runWorker],
+    [redraw, recompose, runWorker, ensureParts],
   );
 
   // Pipeline on open.
@@ -247,10 +285,15 @@ export default function PhotoToLineArtModal({
     if (tool === "fill") {
       const { x, y } = toWork(e.clientX, e.clientY);
       const op: EditOp = { kind: "fill", x: p.x0 + x / p.scale, y: p.y0 + y / p.scale, tol: fillTol };
-      opsRef.current.push(op);
-      applyOp(img, p, op, fillMaskRef.current);
-      setUndoCount(opsRef.current.length);
-      redraw();
+      ensureParts().then(() => {
+        const f = frame();
+        const cur = composedRef.current;
+        if (!f || !cur || preparedRef.current !== p) return;
+        opsRef.current.push(op);
+        applyOp(cur, f, op, fillMaskRef.current);
+        setUndoCount(opsRef.current.length);
+        redraw();
+      });
       return;
     }
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -378,7 +421,11 @@ export default function PhotoToLineArtModal({
               ).map(([t, label]) => (
                 <button
                   key={t}
-                  onClick={() => setTool((cur) => (cur === t ? "none" : t))}
+                  onClick={() => {
+                    setTool((cur) => (cur === t ? "none" : t));
+                    // Start loading the part model as soon as the fill is picked.
+                    if (t === "fill") ensureParts();
+                  }}
                   className="px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
                     borderColor: "var(--line)",
@@ -409,7 +456,7 @@ export default function PhotoToLineArtModal({
 
             {tool !== "none" && (
               <div className="flex flex-wrap items-center gap-3 -mt-2 text-sm text-[var(--ink-soft)]">
-                <span>{TOOL_HINT[tool]}</span>
+                <span>{tool === "fill" && findingParts ? "מזהים שיער, פנים ובגדים בתמונה…" : TOOL_HINT[tool]}</span>
                 {tool === "fill" && (
                   <label className="flex items-center gap-2">
                     כמה להתפשט

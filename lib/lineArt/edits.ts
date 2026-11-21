@@ -26,6 +26,8 @@ export interface Frame {
   scale: number;
   /** Slightly blurred RGB of the crop, 3 bytes per px (for the fill). */
   rgb: Uint8ClampedArray;
+  /** Body-part id per px (lib/lineArt/parts.ts), when available. */
+  parts?: Uint8Array | null;
 }
 
 /** Paint a filled circle (working px) with value v. */
@@ -89,6 +91,48 @@ export function wandFill(
     if (y > 0 && !region[p - w] && ok(p - w)) { region[p - w] = 1; stack[sp++] = p - w; }
     if (y < h - 1 && !region[p + w] && ok(p + w)) { region[p + w] = 1; stack[sp++] = p + w; }
   }
+  finishRegion(img, w, h, region, mask);
+}
+
+/**
+ * Smart fill for people: when the tap lands on a recognised part (hair,
+ * clothes, skin, accessories), fill exactly the connected piece of that part -
+ * so filling the hair never takes the eyes (face skin) or the shirt.
+ * Returns false when the tap isn't on a recognised part (→ colour fill).
+ */
+export function partFill(
+  img: Uint8Array, w: number, h: number, sx: number, sy: number,
+  parts: Uint8Array, mask: Uint8Array | null,
+): boolean {
+  sx = Math.round(sx);
+  sy = Math.round(sy);
+  if (sx < 0 || sy < 0 || sx >= w || sy >= h) return false;
+  const cls = parts[sy * w + sx];
+  if (cls === 0) return false; // background / not a person
+  const region = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  let sp = 0;
+  const seed = sy * w + sx;
+  region[seed] = 1;
+  stack[sp++] = seed;
+  const ok = (i: number) => parts[i] === cls && (!mask || mask[i]);
+  while (sp > 0) {
+    const p = stack[--sp];
+    const x = p % w;
+    const y = (p - x) / w;
+    if (x > 0 && !region[p - 1] && ok(p - 1)) { region[p - 1] = 1; stack[sp++] = p - 1; }
+    if (x < w - 1 && !region[p + 1] && ok(p + 1)) { region[p + 1] = 1; stack[sp++] = p + 1; }
+    if (y > 0 && !region[p - w] && ok(p - w)) { region[p - w] = 1; stack[sp++] = p - w; }
+    if (y < h - 1 && !region[p + w] && ok(p + w)) { region[p + w] = 1; stack[sp++] = p + w; }
+  }
+  finishRegion(img, w, h, region, mask, false);
+  return true;
+}
+
+/** Absorb small islands inside a region, smooth its edge, paint it black. */
+function finishRegion(img: Uint8Array, w: number, h: number, region: Uint8Array, mask: Uint8Array | null, absorb = true) {
+  const stack = new Int32Array(w * h);
+  let sp = 0;
   // Absorb small enclosed islands (highlights between strands).
   const maxHole = 0.004 * w * h;
   const seen = new Uint8Array(w * h);
@@ -111,7 +155,7 @@ export function wandFill(
       if (y > 0 && !region[p - w] && !seen[p - w]) { seen[p - w] = 1; stack[sp++] = p - w; }
       if (y < h - 1 && !region[p + w] && !seen[p + w]) { seen[p + w] = 1; stack[sp++] = p + w; }
     }
-    if (!touchesEdge && cn <= maxHole) for (let k = 0; k < cn; k++) region[comp[k]] = 1;
+    if (absorb && !touchesEdge && cn <= maxHole) for (let k = 0; k < cn; k++) region[comp[k]] = 1;
   }
   // Smooth the edge (majority in a 5×5 window) so it reads as a clean shape.
   const R = 2;
@@ -136,7 +180,10 @@ export function wandFill(
 /** Apply one op to a working-res drawing (in place). */
 export function applyOp(img: Uint8Array, f: Frame, op: EditOp, mask: Uint8Array | null) {
   if (op.kind === "fill") {
-    wandFill(img, f.w, f.h, (op.x - f.x0) * f.scale, (op.y - f.y0) * f.scale, f.rgb, op.tol, mask);
+    const x = (op.x - f.x0) * f.scale;
+    const y = (op.y - f.y0) * f.scale;
+    if (f.parts && partFill(img, f.w, f.h, x, y, f.parts, mask)) return;
+    wandFill(img, f.w, f.h, x, y, f.rgb, op.tol, mask);
     return;
   }
   const v = op.kind === "pen" ? 1 : 0;

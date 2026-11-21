@@ -192,6 +192,8 @@ export interface PreparedPhoto {
   scale: number;
   /** Slightly blurred RGB of the crop (3 bytes/px), for the colour fill. */
   rgb: Uint8ClampedArray;
+  /** The colour crop itself at working size (input for part segmentation). */
+  crop: HTMLCanvasElement;
 }
 
 /** Mask (MODEL_SIZE²) → canvas of the given size, smoothly upscaled. */
@@ -283,7 +285,7 @@ export function preparePhoto(photo: HTMLCanvasElement, mask: Float32Array | null
     gray[i] = l * a + (1 - a);
     m[i] = a;
   }
-  return { w, h, gray, mask: m, colorUrl, x0, y0, scale: s, rgb: blurRgb(rgba, w, h, 2) };
+  return { w, h, gray, mask: m, colorUrl, x0, y0, scale: s, rgb: blurRgb(rgba, w, h, 2), crop: c };
 }
 
 /** RGBA → RGB with a small box blur (two passes), so fabric texture and

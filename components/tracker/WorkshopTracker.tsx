@@ -48,7 +48,10 @@ export default function WorkshopTracker() {
     const backwardKey = isRTL ? "ArrowRight" : "ArrowLeft";
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "SELECT") return;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      // One press = one page. Holding an arrow key fires auto-repeat ~30×/s,
+      // which used to race the highlight across the whole image.
+      if (e.repeat) return;
       if (e.key === forwardKey) nextPage();
       else if (e.key === backwardKey) prevPage();
       else if (e.key === " " || e.key === "Enter") {
@@ -169,7 +172,9 @@ export default function WorkshopTracker() {
         </section>
 
         {/* Side panel: measurements for whichever leaf is selected + progress. */}
-        <aside className="space-y-5">
+        {/* On phones the measurements come first (they're what you fold by);
+            side by side from lg up. */}
+        <aside className="space-y-5 order-first lg:order-none">
           <FocusCard
             measurement={measurement}
             // Math.max, not just config.lastPage directly - the field is

@@ -32,9 +32,21 @@ export default function FocusCard({
     pairs.push([marksCm[i], marksCm[i + 1] ?? null]);
   }
 
+  // The card must fit on screen without scrolling, however many cuts a leaf
+  // has (photo line art can give 15-20 pairs). Few pairs keep the big,
+  // glanceable numbers; more pairs switch to a compact table, two columns
+  // when it would otherwise get tall.
+  const n = pairs.length;
+  const big = n <= 2;
+  const twoCols = n > 8;
+  const valueClass = n <= 4 ? "text-4xl" : n <= 8 ? "text-2xl" : "text-lg";
+  const fromLabel = mode === "MMF" ? "עליון" : mode === "PAINT" ? "צביעה מ-" : "גזירה מ-";
+  const toLabel = mode === "MMF" ? "תחתון" : mode === "PAINT" ? "צביעה עד" : "גזירה עד";
+  const rowLabel = (i: number) => (mode === "MMF" ? `קו ${i + 1}` : String(i + 1));
+
   return (
     <div
-      className="relative rounded-[var(--radius)] p-6 sm:p-8 text-center"
+      className={`relative rounded-[var(--radius)] text-center ${big ? "p-6 sm:p-8" : "p-4 sm:p-5"}`}
       style={{ background: "var(--ink)", boxShadow: "var(--shadow)" }}
     >
       {/* Pinned to the dark card's own top-right corner (not the page header),
@@ -65,7 +77,9 @@ export default function FocusCard({
         />
       </p>
       <div className="mt-1 flex items-baseline justify-center gap-3">
-        <span className="font-display text-7xl sm:text-8xl text-[var(--paper)] tabular leading-none">
+        <span
+          className={`font-display text-[var(--paper)] tabular leading-none ${big ? "text-7xl sm:text-8xl" : "text-5xl sm:text-6xl"}`}
+        >
           {page}
         </span>
         <span className="text-lg text-[rgba(246,241,231,0.55)] tabular">
@@ -77,7 +91,7 @@ export default function FocusCard({
         <p className="mt-6 text-xl text-[rgba(246,241,231,0.8)]">
           אין סימונים בדף זה — דלג.
         </p>
-      ) : (
+      ) : big ? (
         <div className="mt-6 space-y-3">
           {pairs.map(([a, b], i) => (
             <div
@@ -86,17 +100,44 @@ export default function FocusCard({
             >
               {pairs.length > 1 && (
                 <span className="eyebrow w-10 text-right" style={{ color: "rgba(246,241,231,0.45)" }}>
-                  {mode === "MMF" ? `קו ${i + 1}` : i + 1}
+                  {rowLabel(i)}
                 </span>
               )}
-              <Mark label={mode === "MMF" ? "עליון" : mode === "PAINT" ? "צביעה מ-" : "גזירה מ-"} value={a} />
-              {b !== null && (
-                <>
-                  <Mark label={mode === "MMF" ? "תחתון" : mode === "PAINT" ? "צביעה עד" : "גזירה עד"} value={b} />
-                </>
-              )}
+              <Mark label={fromLabel} value={a} />
+              {b !== null && <Mark label={toLabel} value={b} />}
             </div>
           ))}
+        </div>
+      ) : (
+        <div className={`mt-4 grid gap-x-5 ${twoCols ? "grid-cols-2" : "grid-cols-1"}`}>
+          {(twoCols ? [pairs.slice(0, Math.ceil(n / 2)), pairs.slice(Math.ceil(n / 2))] : [pairs]).map((col, c) => (
+            <table key={c} className="w-full tabular text-[var(--paper)]">
+              <thead>
+                <tr className="eyebrow" style={{ color: "rgba(246,241,231,0.5)" }}>
+                  <th className="font-normal w-6" />
+                  <th className="font-normal">{fromLabel}</th>
+                  <th className="font-normal">{toLabel.replace("גזירה ", "").replace("צביעה ", "")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {col.map(([a, b], j) => {
+                  const i = c * Math.ceil(n / 2) + j;
+                  return (
+                    <tr key={i} className="border-t" style={{ borderColor: "rgba(246,241,231,0.12)" }}>
+                      <td className="text-xs py-0.5" style={{ color: "rgba(246,241,231,0.45)" }}>
+                        {i + 1}
+                      </td>
+                      <td className={`font-display leading-tight py-0.5 ${valueClass}`}>{a.toFixed(1)}</td>
+                      <td className={`font-display leading-tight py-0.5 ${valueClass}`}>{b !== null ? b.toFixed(1) : ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ))}
+          <p className="col-span-full mt-2 text-xs" style={{ color: "rgba(246,241,231,0.45)" }}>
+            כל המידות בס״מ מהקצה העליון של הדף
+          </p>
         </div>
       )}
     </div>

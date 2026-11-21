@@ -228,8 +228,10 @@ export default function ImagePreview({
       <canvas
         ref={canvasRef}
         onClick={handleClick}
-        className="w-full h-auto block"
-        style={{ cursor: "crosshair" }}
+        className="block mx-auto max-w-full w-auto h-auto"
+        // Fit the whole picture between the header and the fixed nav bar, so
+        // nothing needs scrolling on a laptop screen.
+        style={{ cursor: "crosshair", maxHeight: "calc(100vh - 190px)" }}
         aria-label="תצוגת התקדמות הקיפול - לחצו במקום כלשהו כדי לעבור לעמוד הזה ולראות את המספרים שלו"
       />
       {clickInfo && clickInfo.onMark && (

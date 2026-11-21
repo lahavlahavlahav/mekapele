@@ -5,7 +5,8 @@
 // -----------------------------------------------------------------------------
 // Opens when someone uploads a regular photo. Removes the background in the
 // browser, draws it as bold black line art, and lets them tune the amount of
-// detail and erase leftovers (a table, a bottle...) before it goes into the
+// detail, erase leftovers (a table, a bottle...), paint with a black pen and
+// fill outlined areas solid (simpler to fold) before it goes into the
 // pattern generator as a black-on-white image.
 // =============================================================================
 
@@ -19,26 +20,16 @@ import {
   warmUpBackgroundRemoval,
   type PreparedPhoto,
 } from "@/lib/lineArt/browser";
+import { applyOp, composeDrawing, stamp, type EditOp } from "@/lib/lineArt/edits";
 
-/** Paint a filled circle (working px) into the erase plane. */
-function stamp(erased: Uint8Array, w: number, h: number, cx: number, cy: number, r: number) {
-  const r2 = r * r;
-  for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(h - 1, Math.ceil(cy + r)); y++) {
-    for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(w - 1, Math.ceil(cx + r)); x++) {
-      const dx = x - cx;
-      const dy = y - cy;
-      if (dx * dx + dy * dy <= r2) erased[y * w + x] = 1;
-    }
-  }
-}
+type Tool = "none" | "erase" | "pen" | "fill";
 
-/** Re-draw all strokes (photo px) onto the erase plane of a given crop. */
-function rasterizeStrokes(p: PreparedPhoto, strokes: { x: number; y: number; r: number }[][]) {
-  const erased = new Uint8Array(p.w * p.h);
-  for (const stroke of strokes)
-    for (const d of stroke) stamp(erased, p.w, p.h, (d.x - p.x0) * p.scale, (d.y - p.y0) * p.scale, d.r * p.scale);
-  return erased;
-}
+const TOOL_HINT: Record<Tool, string> = {
+  none: "",
+  erase: "העבירו אצבע על מה שמיותר כדי למחוק.",
+  pen: "ציירו בשחור, למשל כדי לסגור רווח בקו המתאר לפני מילוי.",
+  fill: "הקישו על אזור (שיער, חולצה, פריט) והוא כולו יתמלא בשחור, לפי הצבע שלו בתמונה.",
+};
 
 type Stage = "decoding" | "background" | "drawing" | "ready" | "error";
 
@@ -68,8 +59,9 @@ export default function PhotoToLineArtModal({
   const [detail, setDetail] = useState(0.5);
   const [keepBackground, setKeepBackground] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
-  const [erasing, setErasing] = useState(false);
+  const [tool, setTool] = useState<Tool>("none");
   const [brush, setBrush] = useState(28);
+  const [fillTol, setFillTol] = useState(50);
   const [undoCount, setUndoCount] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -80,17 +72,28 @@ export default function PhotoToLineArtModal({
   const maskRef = useRef<Float32Array | null>(null);
   const preparedRef = useRef<PreparedPhoto | null>(null);
   const inkRef = useRef<Uint8Array | null>(null);
-  const erasedRef = useRef<Uint8Array | null>(null);
-  /** Eraser strokes in ORIGINAL photo pixels, so they survive re-cropping
-   *  (switching the background on/off changes the crop). One entry per stroke. */
-  const strokesRef = useRef<{ x: number; y: number; r: number }[][]>([]);
+  /** Manual edits in ORIGINAL photo pixels, replayed on top of the ink, so
+   *  they survive the slider and re-cropping (background on/off). */
+  const opsRef = useRef<EditOp[]>([]);
+  /** ink + edits, at working resolution (1 = black). */
+  const composedRef = useRef<Uint8Array | null>(null);
+  /** Subject mask (working res) that a fill may not leave; null = whole image. */
+  const fillMaskRef = useRef<Uint8Array | null>(null);
   const drawingRef = useRef(false);
 
   const redraw = useCallback(() => {
     const p = preparedRef.current;
+    const img = composedRef.current;
+    if (!p || !img || !canvasRef.current) return;
+    inkToCanvas(img, null, p.w, p.h, canvasRef.current);
+  }, []);
+
+  /** Rebuild ink + all edits (after the slider, a re-crop or an undo). */
+  const recompose = useCallback(() => {
+    const p = preparedRef.current;
     const ink = inkRef.current;
-    if (!p || !ink || !canvasRef.current) return;
-    inkToCanvas(ink, erasedRef.current, p.w, p.h, canvasRef.current);
+    if (!p || !ink) return;
+    composedRef.current = composeDrawing(ink, p, opsRef.current, fillMaskRef.current);
   }, []);
 
   /** Send work to the worker; resolves with the ink plane of the latest request only. */
@@ -122,7 +125,7 @@ export default function PhotoToLineArtModal({
       await new Promise((r) => setTimeout(r, 30));
       const prepared = preparePhoto(photo, keepBg ? null : maskRef.current);
       preparedRef.current = prepared;
-      erasedRef.current = rasterizeStrokes(prepared, strokesRef.current);
+      fillMaskRef.current = keepBg ? null : Uint8Array.from(prepared.mask, (v) => (v > 0.5 ? 1 : 0));
       const gray = prepared.gray.slice();
       const mask = prepared.mask.slice();
       const ink = await runWorker(
@@ -131,10 +134,11 @@ export default function PhotoToLineArtModal({
       );
       if (!ink) return;
       inkRef.current = ink;
+      recompose();
       setStage("ready");
       requestAnimationFrame(redraw);
     },
-    [redraw, runWorker],
+    [redraw, recompose, runWorker],
   );
 
   // Pipeline on open.
@@ -179,6 +183,7 @@ export default function PhotoToLineArtModal({
         const ink = await runWorker({ type: "render", detail });
         if (ink) {
           inkRef.current = ink;
+          recompose();
           redraw();
         }
       } catch {
@@ -203,63 +208,78 @@ export default function PhotoToLineArtModal({
     });
   };
 
-  // --- eraser -----------------------------------------------------------------
-  const eraseAt = (clientX: number, clientY: number) => {
-    const c = canvasRef.current;
-    const p = preparedRef.current;
-    const erased = erasedRef.current;
-    if (!c || !p || !erased) return;
+  // --- edit tools -------------------------------------------------------------
+  /** Screen point → working px + the current brush radius in working px. */
+  const toWork = (clientX: number, clientY: number) => {
+    const c = canvasRef.current!;
+    const p = preparedRef.current!;
     const rect = c.getBoundingClientRect();
     const sx = p.w / rect.width;
-    const cx = (clientX - rect.left) * sx;
-    const cy = (clientY - rect.top) * (p.h / rect.height);
     // Brush size is in screen pixels, so it feels the same on phone and desktop.
-    const r = (brush / 2) * sx;
-    const stroke = strokesRef.current[strokesRef.current.length - 1];
-    const last = stroke?.[stroke.length - 1];
+    return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * (p.h / rect.height), r: (brush / 2) * sx };
+  };
+
+  const brushAt = (clientX: number, clientY: number) => {
+    const p = preparedRef.current;
+    const img = composedRef.current;
+    const op = opsRef.current[opsRef.current.length - 1];
+    if (!p || !img || !op || op.kind === "fill") return;
+    const { x: cx, y: cy, r } = toWork(clientX, clientY);
+    const last = op.points[op.points.length - 1];
     // Fill the gap since the previous point so fast swipes stay continuous.
     const lx = last ? (last.x - p.x0) * p.scale : cx;
     const ly = last ? (last.y - p.y0) * p.scale : cy;
     const steps = Math.max(1, Math.ceil(Math.hypot(cx - lx, cy - ly) / Math.max(1, r / 2)));
+    const v = op.kind === "pen" ? 1 : 0;
     for (let k = 1; k <= steps; k++) {
       const x = lx + ((cx - lx) * k) / steps;
       const y = ly + ((cy - ly) * k) / steps;
-      stamp(erased, p.w, p.h, x, y, r);
-      stroke?.push({ x: p.x0 + x / p.scale, y: p.y0 + y / p.scale, r: r / p.scale });
+      stamp(img, p.w, p.h, x, y, r, v);
+      op.points.push({ x: p.x0 + x / p.scale, y: p.y0 + y / p.scale, r: r / p.scale });
     }
     redraw();
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!erasing || !erasedRef.current) return;
+    const p = preparedRef.current;
+    const img = composedRef.current;
+    if (tool === "none" || !p || !img) return;
+    if (tool === "fill") {
+      const { x, y } = toWork(e.clientX, e.clientY);
+      const op: EditOp = { kind: "fill", x: p.x0 + x / p.scale, y: p.y0 + y / p.scale, tol: fillTol };
+      opsRef.current.push(op);
+      applyOp(img, p, op, fillMaskRef.current);
+      setUndoCount(opsRef.current.length);
+      redraw();
+      return;
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
-    strokesRef.current.push([]);
-    setUndoCount(strokesRef.current.length);
+    opsRef.current.push({ kind: tool, points: [] });
+    setUndoCount(opsRef.current.length);
     drawingRef.current = true;
-    eraseAt(e.clientX, e.clientY);
+    brushAt(e.clientX, e.clientY);
   };
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (drawingRef.current) eraseAt(e.clientX, e.clientY);
+    if (drawingRef.current) brushAt(e.clientX, e.clientY);
   };
   const onPointerUp = () => {
     drawingRef.current = false;
   };
   const onUndo = () => {
-    const p = preparedRef.current;
-    if (!p || !strokesRef.current.length) return;
-    strokesRef.current.pop();
-    erasedRef.current = rasterizeStrokes(p, strokesRef.current);
-    setUndoCount(strokesRef.current.length);
+    if (!opsRef.current.length) return;
+    opsRef.current.pop();
+    recompose();
+    setUndoCount(opsRef.current.length);
     redraw();
   };
 
   const onContinue = async () => {
     const p = preparedRef.current;
-    const ink = inkRef.current;
-    if (!p || !ink) return;
+    const img = composedRef.current;
+    if (!p || !img) return;
     setSaving(true);
     try {
-      const out = inkToCanvas(ink, erasedRef.current, p.w, p.h);
+      const out = inkToCanvas(img, null, p.w, p.h);
       const base = file.name.replace(/\.[^.]+$/, "") || "photo";
       onUse(await canvasToPngFile(out, `${base}-lines.png`));
     } catch {
@@ -285,8 +305,8 @@ export default function PhotoToLineArtModal({
         </div>
 
         <p className="text-sm text-[var(--ink-soft)] mb-3">
-          העליתם תמונה רגילה. הרקע הוסר והתמונה צוירה בקווים שחורים, כדי שתתאים לקיפול. אפשר לכוון את כמות הפרטים
-          ולמחוק חלקים מיותרים.
+          העליתם תמונה רגילה. הרקע הוסר והתמונה צוירה בקווים שחורים, כדי שתתאים לקיפול. אפשר לכוון את כמות הפרטים,
+          למחוק חלקים מיותרים ולמלא אזורים בשחור כדי שהתבנית תהיה פשוטה יותר.
         </p>
 
         {/* Preview */}
@@ -317,8 +337,8 @@ export default function PhotoToLineArtModal({
             style={{
               display: stage === "ready" && !showOriginal ? "block" : "none",
               maxHeight: "58vh",
-              touchAction: erasing ? "none" : "auto",
-              cursor: erasing ? "crosshair" : "default",
+              touchAction: tool !== "none" ? "none" : "auto",
+              cursor: tool === "none" ? "default" : tool === "fill" ? "cell" : "crosshair",
             }}
           />
           {stage === "ready" && showOriginal && preparedRef.current && (
@@ -349,38 +369,34 @@ export default function PhotoToLineArtModal({
             </label>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setErasing((v) => !v)}
-                className="px-3 py-2 rounded-lg border text-sm font-semibold"
-                style={{
-                  borderColor: "var(--line)",
-                  background: erasing ? "var(--coral)" : "transparent",
-                  color: erasing ? "#fff" : "inherit",
-                }}
-                aria-pressed={erasing}
-              >
-                {erasing ? "✓ מחק פעיל, העבירו אצבע על מה שמיותר" : "🩹 מחק"}
-              </button>
-              {erasing && (
-                <label className="flex items-center gap-2 text-sm">
-                  גודל
-                  <input
-                    type="range"
-                    min={10}
-                    max={70}
-                    value={brush}
-                    onChange={(e) => setBrush(parseInt(e.target.value, 10))}
-                    dir="ltr"
-                  />
-                </label>
-              )}
+              {(
+                [
+                  ["erase", "🩹 מחק"],
+                  ["pen", "✏️ עט שחור"],
+                  ["fill", "🪣 מילוי בשחור"],
+                ] as const
+              ).map(([t, label]) => (
+                <button
+                  key={t}
+                  onClick={() => setTool((cur) => (cur === t ? "none" : t))}
+                  className="px-3 py-2 rounded-lg border text-sm font-semibold"
+                  style={{
+                    borderColor: "var(--line)",
+                    background: tool === t ? "var(--coral)" : "transparent",
+                    color: tool === t ? "#fff" : "inherit",
+                  }}
+                  aria-pressed={tool === t}
+                >
+                  {label}
+                </button>
+              ))}
               <button
                 onClick={onUndo}
                 disabled={!undoCount}
                 className="px-3 py-2 rounded-lg border text-sm disabled:opacity-40"
                 style={{ borderColor: "var(--line)" }}
               >
-                ↶ ביטול מחיקה
+                ↶ ביטול
               </button>
               <button
                 onClick={() => setShowOriginal((v) => !v)}
@@ -390,6 +406,38 @@ export default function PhotoToLineArtModal({
                 {showOriginal ? "הצגת הציור" : "השוואה למקור"}
               </button>
             </div>
+
+            {tool !== "none" && (
+              <div className="flex flex-wrap items-center gap-3 -mt-2 text-sm text-[var(--ink-soft)]">
+                <span>{TOOL_HINT[tool]}</span>
+                {tool === "fill" && (
+                  <label className="flex items-center gap-2">
+                    כמה להתפשט
+                    <input
+                      type="range"
+                      min={15}
+                      max={90}
+                      value={fillTol}
+                      onChange={(e) => setFillTol(parseInt(e.target.value, 10))}
+                      dir="ltr"
+                    />
+                  </label>
+                )}
+                {(tool === "erase" || tool === "pen") && (
+                  <label className="flex items-center gap-2">
+                    גודל
+                    <input
+                      type="range"
+                      min={6}
+                      max={70}
+                      value={brush}
+                      onChange={(e) => setBrush(parseInt(e.target.value, 10))}
+                      dir="ltr"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
 
             <label className="flex items-center gap-2 text-sm">
               <input

@@ -315,13 +315,6 @@ export interface LineArtPlanes {
   fdog: Float32Array;
   contrast: Float32Array;
   dark: Float32Array;
-  /** Smoothed luminance, for solid fills at low detail. */
-  tone: Float32Array;
-  /** tone quantiles over the subject: toneQ[p] = p-th percentile (0..100). */
-  toneQ: Float32Array;
-  /** How crowded with strokes each area is (0..1) at the default detail -
-   *  high in hair and patterned fabric, low in faces and skin. */
-  density: Float32Array;
 }
 
 /**
@@ -338,23 +331,9 @@ export function computeLineArtPlanes(gray: Float32Array, mask: Float32Array, w: 
   }
   const { nx, ny } = gradientField(gray, w, h);
   const gb = gaussianBlur(gray, w, h, 1.0);
-  // Smoothed along the flow too, so filled hair keeps its flowing outline.
-  const tone = flowSmooth(gaussianBlur(gray, w, h, 0.006 * L), nx, ny, w, h, 4);
-  const vals: number[] = [];
-  for (let i = 0; i < w * h; i += 3) if (mb[i]) vals.push(tone[i]);
-  vals.sort((a, b) => a - b);
-  const toneQ = new Float32Array(101);
-  for (let q = 0; q <= 100; q++) toneQ[q] = vals.length ? vals[Math.min(vals.length - 1, Math.floor((q / 100) * vals.length))] : 0;
   const fdog = flowSmooth(dogAcross(gb, nx, ny, w, h, 1.0, 0.99), nx, ny, w, h, 3);
   const contrast = flowSmooth(localDiff(gb, m, w, h, 0.008 * L), nx, ny, w, h, 4);
-  const mid = thresholds(0.5);
-  const strokes = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) strokes[i] = mb[i] && (fdog[i] < mid.eps || contrast[i] < -mid.k1) ? 1 : 0;
-  const density = gaussianBlur(strokes, w, h, 0.012 * L);
   return {
-    tone,
-    toneQ,
-    density,
     w,
     h,
     mask: mb,
@@ -373,39 +352,12 @@ export function renderLineArt(p: LineArtPlanes, params: LineArtParams = { detail
     const on = p.fdog[i] < eps || (p.mask[i] > 0 && (p.contrast[i] < -k1 || p.dark[i] < -darkK));
     raw[i] = on ? 1 : 0;
   }
-  // Below the middle of the slider, the darkest parts of the subject (hair,
-  // dark clothes, deep shadows) merge into solid black shapes instead of
-  // separate strands - simpler to fold. Up to ~45% of the subject at 0.
-  const solid = Math.max(0, Math.min(1, (0.5 - params.detail) / 0.5));
-  if (solid > 0) {
-    const pct = Math.round(8 + 37 * solid);
-    const cut = p.toneQ[pct];
-    const fill = new Float32Array(w * h);
-    // Dense strokes (hair) merge too, even when the hair itself is light -
-    // but not skin-light areas, and only as large shapes: small dense spots
-    // (eyes, mouth) must stay drawn as lines, not turn into blobs.
-    const dens = 0.45 - 0.12 * solid;
-    const skinCut = p.toneQ[70];
-    let subject = 0;
-    const hair = new Uint8Array(w * h);
-    for (let i = 0; i < w * h; i++) {
-      if (!p.mask[i]) continue;
-      subject++;
-      if (p.density[i] >= dens && p.tone[i] <= skinCut) hair[i] = 1;
-    }
-    dropSmall(hair, w, h, 1, 0.01 * subject, true);
-    for (let i = 0; i < w * h; i++) fill[i] = p.mask[i] && (p.tone[i] <= cut || hair[i]) ? 1 : 0;
-    // Round the blobs so they read as shapes, not noise.
-    const fs = gaussianBlur(fill, w, h, 2.5);
-    for (let i = 0; i < w * h; i++) if (fs[i] > 0.5) raw[i] = 1;
-  }
   const soft = gaussianBlur(raw, w, h, 0.7);
   const ink = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) ink[i] = soft[i] > 0.5 ? 1 : 0;
-  // Fewer details → also drop bigger specks and fill bigger holes.
-  const minArea = 0.00003 * w * h * (1 + 4 * solid);
+  const minArea = 0.00003 * w * h;
   dropSmall(ink, w, h, 1, minArea, true); // specks of ink
-  dropSmall(ink, w, h, 0, minArea * (0.5 + 2 * solid), false); // pinholes inside ink
+  dropSmall(ink, w, h, 0, minArea * 0.5, false); // pinholes inside ink
   return ink;
 }
 

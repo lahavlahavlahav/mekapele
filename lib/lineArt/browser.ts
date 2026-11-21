@@ -190,6 +190,8 @@ export interface PreparedPhoto {
   x0: number;
   y0: number;
   scale: number;
+  /** Slightly blurred RGB of the crop (3 bytes/px), for the colour fill. */
+  rgb: Uint8ClampedArray;
 }
 
 /** Mask (MODEL_SIZE²) → canvas of the given size, smoothly upscaled. */
@@ -281,7 +283,42 @@ export function preparePhoto(photo: HTMLCanvasElement, mask: Float32Array | null
     gray[i] = l * a + (1 - a);
     m[i] = a;
   }
-  return { w, h, gray, mask: m, colorUrl, x0, y0, scale: s };
+  return { w, h, gray, mask: m, colorUrl, x0, y0, scale: s, rgb: blurRgb(rgba, w, h, 2) };
+}
+
+/** RGBA → RGB with a small box blur (two passes), so fabric texture and
+ *  noise don't break up the colour fill. */
+function blurRgb(rgba: Uint8ClampedArray, w: number, h: number, r: number): Uint8ClampedArray {
+  let a = new Float32Array(w * h * 3);
+  for (let i = 0; i < w * h; i++) {
+    a[i * 3] = rgba[i * 4];
+    a[i * 3 + 1] = rgba[i * 4 + 1];
+    a[i * 3 + 2] = rgba[i * 4 + 2];
+  }
+  let b = new Float32Array(w * h * 3);
+  const n = 2 * r + 1;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = 0; y < h; y++)
+      for (let c = 0; c < 3; c++) {
+        let acc = 0;
+        for (let k = -r; k <= r; k++) acc += a[(y * w + Math.min(w - 1, Math.max(0, k))) * 3 + c];
+        for (let x = 0; x < w; x++) {
+          b[(y * w + x) * 3 + c] = acc / n;
+          acc += a[(y * w + Math.min(w - 1, x + r + 1)) * 3 + c] - a[(y * w + Math.max(0, x - r)) * 3 + c];
+        }
+      }
+    for (let x = 0; x < w; x++)
+      for (let c = 0; c < 3; c++) {
+        let acc = 0;
+        for (let k = -r; k <= r; k++) acc += b[(Math.min(h - 1, Math.max(0, k)) * w + x) * 3 + c];
+        for (let y = 0; y < h; y++) {
+          a[(y * w + x) * 3 + c] = acc / n;
+          acc += b[(Math.min(h - 1, y + r + 1) * w + x) * 3 + c] - b[(Math.max(0, y - r) * w + x) * 3 + c];
+        }
+      }
+  }
+  b = a;
+  return Uint8ClampedArray.from(b);
 }
 
 /** Ink plane (1 = black) minus erased pixels → black/white canvas. */

@@ -23,13 +23,14 @@ import {
 import { applyOp, composeDrawing, stamp, type EditOp, type Frame } from "@/lib/lineArt/edits";
 import { segmentParts } from "@/lib/lineArt/parts";
 
-type Tool = "none" | "erase" | "pen" | "fill";
+type Tool = "none" | "erase" | "pen" | "fill" | "fillLine";
 
 const TOOL_HINT: Record<Tool, string> = {
   none: "",
   erase: "העבירו אצבע על מה שמיותר כדי למחוק.",
   pen: "ציירו בשחור, למשל כדי לסגור רווח בקו המתאר לפני מילוי.",
   fill: "הקישו על אזור (שיער, חולצה, פריט) והוא כולו יתמלא בשחור. אצל אנשים המערכת מזהה לבד את גבולות השיער, הבגדים והפנים.",
+  fillLine: "הקישו בתוך אזור קטן שמוקף בקו מתאר (עין, כפתור, רווח בין אצבעות), ורק הוא יתמלא בשחור.",
 };
 
 type Stage = "decoding" | "background" | "drawing" | "ready" | "error";
@@ -84,6 +85,7 @@ export default function PhotoToLineArtModal({
   const partsRef = useRef<{ for: PreparedPhoto; parts: Uint8Array | null } | null>(null);
   const partsJob = useRef<Promise<void> | null>(null);
   const [findingParts, setFindingParts] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const frame = (): Frame | null => {
     const p = preparedRef.current;
@@ -261,7 +263,7 @@ export default function PhotoToLineArtModal({
     const p = preparedRef.current;
     const img = composedRef.current;
     const op = opsRef.current[opsRef.current.length - 1];
-    if (!p || !img || !op || op.kind === "fill") return;
+    if (!p || !img || !op || (op.kind !== "erase" && op.kind !== "pen")) return;
     const { x: cx, y: cy, r } = toWork(clientX, clientY);
     const last = op.points[op.points.length - 1];
     // Fill the gap since the previous point so fast swipes stay continuous.
@@ -282,6 +284,19 @@ export default function PhotoToLineArtModal({
     const p = preparedRef.current;
     const img = composedRef.current;
     if (tool === "none" || !p || !img) return;
+    if (tool === "fillLine") {
+      const { x, y } = toWork(e.clientX, e.clientY);
+      const op: EditOp = { kind: "fillLine", x: p.x0 + x / p.scale, y: p.y0 + y / p.scale };
+      if (applyOp(img, p, op, fillMaskRef.current)) {
+        opsRef.current.push(op);
+        setUndoCount(opsRef.current.length);
+        setNotice(null);
+        redraw();
+      } else {
+        setNotice("האזור הזה לא סגור בקו, לכן לא מילאנו אותו. אפשר לסגור את הקו עם העט השחור ולהקיש שוב.");
+      }
+      return;
+    }
     if (tool === "fill") {
       const { x, y } = toWork(e.clientX, e.clientY);
       const op: EditOp = { kind: "fill", x: p.x0 + x / p.scale, y: p.y0 + y / p.scale, tol: fillTol };
@@ -381,7 +396,7 @@ export default function PhotoToLineArtModal({
               display: stage === "ready" && !showOriginal ? "block" : "none",
               maxHeight: "58vh",
               touchAction: tool !== "none" ? "none" : "auto",
-              cursor: tool === "none" ? "default" : tool === "fill" ? "cell" : "crosshair",
+              cursor: tool === "none" ? "default" : tool === "fill" || tool === "fillLine" ? "cell" : "crosshair",
             }}
           />
           {stage === "ready" && showOriginal && preparedRef.current && (
@@ -417,12 +432,14 @@ export default function PhotoToLineArtModal({
                   ["erase", "🩹 מחק"],
                   ["pen", "✏️ עט שחור"],
                   ["fill", "🪣 מילוי בשחור"],
+                  ["fillLine", "◼️ מילוי בתוך קו"],
                 ] as const
               ).map(([t, label]) => (
                 <button
                   key={t}
                   onClick={() => {
                     setTool((cur) => (cur === t ? "none" : t));
+                    setNotice(null);
                     // Start loading the part model as soon as the fill is picked.
                     if (t === "fill") ensureParts();
                   }}
@@ -454,6 +471,11 @@ export default function PhotoToLineArtModal({
               </button>
             </div>
 
+            {notice && (
+              <p className="text-sm rounded-lg px-3 py-2 -mt-2" style={{ background: "rgba(226,97,74,0.12)", color: "var(--coral-deep)" }}>
+                {notice}
+              </p>
+            )}
             {tool !== "none" && (
               <div className="flex flex-wrap items-center gap-3 -mt-2 text-sm text-[var(--ink-soft)]">
                 <span>{tool === "fill" && findingParts ? "מזהים שיער, פנים ובגדים בתמונה…" : TOOL_HINT[tool]}</span>

@@ -15,7 +15,8 @@ export interface BrushPoint {
 export type EditOp =
   | { kind: "erase"; points: BrushPoint[] }
   | { kind: "pen"; points: BrushPoint[] }
-  | { kind: "fill"; x: number; y: number; tol: number };
+  | { kind: "fill"; x: number; y: number; tol: number }
+  | { kind: "fillLine"; x: number; y: number };
 
 /** Maps photo px ↔ working px for the current crop, plus its colours. */
 export interface Frame {
@@ -177,17 +178,125 @@ function finishRegion(img: Uint8Array, w: number, h: number, region: Uint8Array,
     }
 }
 
+/** How far (working px) the in-outline fill bridges small gaps in a line. */
+const GAP = 2;
+/** An in-outline fill bigger than this share of the picture means the area
+ *  isn't actually closed - refuse rather than flood half the drawing. */
+const MAX_LINE_FILL = 0.02;
+
+/**
+ * Fill the white area enclosed by drawn lines around (sx, sy) - for small
+ * outlined spots (an eye, a button, a gap between fingers). Gaps up to ~2·GAP
+ * px in the outline count as closed. Returns false (and changes nothing) when
+ * the area isn't enclosed.
+ */
+export function lineFill(img: Uint8Array, w: number, h: number, sx: number, sy: number, mask: Uint8Array | null): boolean {
+  sx = Math.round(sx);
+  sy = Math.round(sy);
+  if (sx < 0 || sy < 0 || sx >= w || sy >= h) return false;
+  // Walls = ink grown by GAP, so hairline gaps don't let the fill leak.
+  const wall = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!img[y * w + x]) continue;
+      for (let dy = -GAP; dy <= GAP; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -GAP; dx <= GAP; dx++) {
+          const xx = x + dx;
+          if (xx >= 0 && xx < w) wall[yy * w + xx] = 1;
+        }
+      }
+    }
+  const free = (i: number) => !wall[i] && (!mask || mask[i]);
+  let seed = sy * w + sx;
+  if (!free(seed)) {
+    // Tapped on or right next to a line: start from the nearest free pixel.
+    let best = -1;
+    let bd = Infinity;
+    for (let dy = -GAP - 3; dy <= GAP + 3; dy++)
+      for (let dx = -GAP - 3; dx <= GAP + 3; dx++) {
+        const x = sx + dx;
+        const y = sy + dy;
+        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const i = y * w + x;
+        if (free(i) && dx * dx + dy * dy < bd) {
+          bd = dx * dx + dy * dy;
+          best = i;
+        }
+      }
+    if (best < 0) return false;
+    seed = best;
+  }
+  const limit = MAX_LINE_FILL * w * h;
+  const filled = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  let sp = 0;
+  let n = 0;
+  stack[sp++] = seed;
+  filled[seed] = 1;
+  while (sp > 0) {
+    const p = stack[--sp];
+    if (++n > limit) return false; // not enclosed
+    const x = p % w;
+    const y = (p - x) / w;
+    // Touching the picture edge or leaving the subject = not enclosed.
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return false;
+    if (!filled[p - 1] && free(p - 1)) { filled[p - 1] = 1; stack[sp++] = p - 1; }
+    if (!filled[p + 1] && free(p + 1)) { filled[p + 1] = 1; stack[sp++] = p + 1; }
+    if (!filled[p - w] && free(p - w)) { filled[p - w] = 1; stack[sp++] = p - w; }
+    if (!filled[p + w] && free(p + w)) { filled[p + w] = 1; stack[sp++] = p + w; }
+  }
+  // The exact white area under the tap (no gap bridging) - so thin strips,
+  // which the grown walls narrow down, still fill completely.
+  const tap = sy * w + sx;
+  if (!img[tap]) {
+    const exact = new Uint8Array(w * h);
+    let m = 0;
+    let closed = true;
+    sp = 0;
+    stack[sp++] = tap;
+    exact[tap] = 1;
+    while (sp > 0) {
+      const p = stack[--sp];
+      if (++m > limit) { closed = false; break; }
+      const x = p % w;
+      const y = (p - x) / w;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) { closed = false; break; }
+      for (const q of [p - 1, p + 1, p - w, p + w])
+        if (!exact[q] && !img[q] && (!mask || mask[q])) { exact[q] = 1; stack[sp++] = q; }
+    }
+    if (closed) for (let i = 0; i < w * h; i++) if (exact[i]) img[i] = 1;
+  }
+  // Grow back by GAP so the fill meets the lines with no white seam.
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!filled[y * w + x]) continue;
+      for (let dy = -GAP; dy <= GAP; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -GAP; dx <= GAP; dx++) {
+          const xx = x + dx;
+          if (xx >= 0 && xx < w) img[yy * w + xx] = 1;
+        }
+      }
+    }
+  return true;
+}
+
 /** Apply one op to a working-res drawing (in place). */
-export function applyOp(img: Uint8Array, f: Frame, op: EditOp, mask: Uint8Array | null) {
+export function applyOp(img: Uint8Array, f: Frame, op: EditOp, mask: Uint8Array | null): boolean {
+  if (op.kind === "fillLine") return lineFill(img, f.w, f.h, (op.x - f.x0) * f.scale, (op.y - f.y0) * f.scale, mask);
   if (op.kind === "fill") {
     const x = (op.x - f.x0) * f.scale;
     const y = (op.y - f.y0) * f.scale;
-    if (f.parts && partFill(img, f.w, f.h, x, y, f.parts, mask)) return;
+    if (f.parts && partFill(img, f.w, f.h, x, y, f.parts, mask)) return true;
     wandFill(img, f.w, f.h, x, y, f.rgb, op.tol, mask);
-    return;
+    return true;
   }
   const v = op.kind === "pen" ? 1 : 0;
   for (const d of op.points) stamp(img, f.w, f.h, (d.x - f.x0) * f.scale, (d.y - f.y0) * f.scale, d.r * f.scale, v);
+  return true;
 }
 
 /** ink + all ops, replayed in order → final drawing (1 = black). */

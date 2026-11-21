@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import BookModel, { DEFAULT_COVER_COLOR } from "./BookModel";
-import type { FoldingMode, FoldingPattern } from "@/lib/types";
+import type { FoldingPattern } from "@/lib/types";
 
 interface Preview3DModalProps {
   pattern: FoldingPattern;
@@ -12,15 +12,13 @@ interface Preview3DModalProps {
   onClose: () => void;
 }
 
-const DEFAULT_OPEN_ANGLE: Record<FoldingMode, number> = { MMF: 175, CUT_AND_FOLD: 110, PAINT: 90 };
+/** The preview always opens at 90deg, for every technique (owner's choice). */
+const DEFAULT_OPEN_ANGLE = 90;
 
 /** Fullscreen modal hosting the interactive 3D book preview. */
 export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Preview3DModalProps) {
-  // Default opening per technique, matching how each is displayed in real
-  // life: MMF fanned almost flat (hexagonal relief), Cut & Fold fanned so the
-  // fore-edges form one continuous curved wall, PAINT at 90deg (owner's
-  // choice). The slider still goes from 0 (closed) to 180 (flat open).
-  const [openAngleDeg, setOpenAngleDeg] = useState(DEFAULT_OPEN_ANGLE[pattern.config.mode] ?? 90);
+  // Always opens at 90deg; the slider still goes from 0 (closed) to 180 (flat open).
+  const [openAngleDeg, setOpenAngleDeg] = useState(DEFAULT_OPEN_ANGLE);
   // Only visible when no cover image is set - an uploaded cover always wins.
   const [coverColor, setCoverColor] = useState(DEFAULT_COVER_COLOR);
   const pageHeightCm = pattern.config.pageHeightCm;

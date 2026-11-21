@@ -399,7 +399,7 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
 
         <Field
           label="שיטת קיפול"
-          info="סימון וקיפול (MMF): מסמנים בכל דף נקודה עליונה ותחתונה ומקפלים את הקצוות פנימה - התמונה מתקבלת כתבליט. גזירה וקיפול: גוזרים בין זוגות הסימונים ומקפלים לסירוגין - מאפשר פרטים עדינים יותר וכמה צורות על אותו דף. צביעה: בלי גזירה ובלי קיפול - צובעים את קצה הדף בין זוגות הסימונים בצבע שבוחרים, והתמונה מופיעה בצבע על חזית הספר."
+          info="גזירה וקיפול: גוזרים בין זוגות הסימונים ומקפלים לסירוגין - מאפשר פרטים עדינים יותר וכמה צורות על אותו דף. סימון וקיפול (MMF): מסמנים בכל דף נקודה עליונה ותחתונה ומקפלים את הקצוות פנימה - התמונה מתקבלת כתבליט. צביעה: בלי גזירה ובלי קיפול - צובעים את קצה הדף בין זוגות הסימונים בצבע שבוחרים, והתמונה מופיעה בצבע על חזית הספר."
         >
           <select
             className={inputClass}
@@ -407,8 +407,8 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
             value={config.mode}
             onChange={(e) => setConfig({ mode: e.target.value as FoldingMode })}
           >
-            <option value="MMF">סימון וקיפול (MMF)</option>
             <option value="CUT_AND_FOLD">גזירה וקיפול</option>
+            <option value="MMF">סימון וקיפול (MMF)</option>
             <option value="PAINT">צביעה (חדש!)</option>
           </select>
         </Field>
@@ -545,24 +545,6 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
             </label>
           </div>
 
-          <Field
-            label={`גודל לשונית מינימלי (${config.minTabSizeMm.toFixed(1)} מ״מ)`}
-            hint="לגזירה וקיפול ולצביעה — מתעלם מקטעים דקים מערך זה."
-            info="רצועת נייר צרה מדי קשה לגזור ולקפל ונקרעת בקלות, וקטע צבוע דק מדי כמעט לא נראה. כל קטע שחור דק מהערך הזה מושמט מהתבנית."
-          >
-            <input
-              type="range"
-              min={0.1}
-              max={5}
-              step={0.1}
-              disabled={config.mode === "MMF"}
-              className="w-full disabled:opacity-40"
-              value={config.minTabSizeMm}
-              onChange={(e) =>
-                setConfig({ minTabSizeMm: parseFloat(e.target.value) })
-              }
-            />
-          </Field>
         </div>
       )}
 

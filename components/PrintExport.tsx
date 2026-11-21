@@ -106,7 +106,7 @@ export default function PrintExport() {
                 : "סימון וקיפול"
               : config.mode === "PAINT"
               ? "צביעה"
-              : `גזירה וקיפול (לשונית מינ׳ ${config.minTabSizeMm} מ״מ)`}{" "}
+              : "גזירה וקיפול"}{" "}
             {config.mode === "PAINT" && (
               <span
                 className="inline-block w-3 h-3 rounded-sm align-middle border"

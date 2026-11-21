@@ -9,8 +9,8 @@ export type FoldingMode = "MMF" | "CUT_AND_FOLD" | "PAINT";
 
 /** Hebrew name of each technique, as shown everywhere in the UI. */
 export const MODE_LABEL: Record<FoldingMode, string> = {
-  MMF: "סימון וקיפול",
   CUT_AND_FOLD: "גזירה וקיפול",
+  MMF: "סימון וקיפול",
   PAINT: "צביעה",
 };
 

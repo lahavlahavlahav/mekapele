@@ -17,7 +17,7 @@ export const DEFAULT_CONFIG: BookConfig = {
   lastPage: 360,
   pageHeightCm: 21.0,
   verticalSpacingCm: 16.0,
-  mode: "MMF",
+  mode: "CUT_AND_FOLD",
   mmfLines: 1,
   minTabSizeMm: 1.0,
   paintColor: DEFAULT_PAINT_COLOR,
@@ -242,7 +242,7 @@ export const useStore = create<AppState>()(
           ...persistedState,
           // Precision is no longer user-selectable - always 1mm, even for
           // configs saved back when 0.5/0.1mm were options.
-          config: { ...DEFAULT_CONFIG, ...persistedState.config, precisionMm: 1 },
+          config: { ...DEFAULT_CONFIG, ...persistedState.config, precisionMm: 1, minTabSizeMm: DEFAULT_CONFIG.minTabSizeMm },
         };
       },
     }

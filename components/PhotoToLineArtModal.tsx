@@ -20,6 +20,26 @@ import {
   type PreparedPhoto,
 } from "@/lib/lineArt/browser";
 
+/** Paint a filled circle (working px) into the erase plane. */
+function stamp(erased: Uint8Array, w: number, h: number, cx: number, cy: number, r: number) {
+  const r2 = r * r;
+  for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(h - 1, Math.ceil(cy + r)); y++) {
+    for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(w - 1, Math.ceil(cx + r)); x++) {
+      const dx = x - cx;
+      const dy = y - cy;
+      if (dx * dx + dy * dy <= r2) erased[y * w + x] = 1;
+    }
+  }
+}
+
+/** Re-draw all strokes (photo px) onto the erase plane of a given crop. */
+function rasterizeStrokes(p: PreparedPhoto, strokes: { x: number; y: number; r: number }[][]) {
+  const erased = new Uint8Array(p.w * p.h);
+  for (const stroke of strokes)
+    for (const d of stroke) stamp(erased, p.w, p.h, (d.x - p.x0) * p.scale, (d.y - p.y0) * p.scale, d.r * p.scale);
+  return erased;
+}
+
 type Stage = "decoding" | "background" | "drawing" | "ready" | "error";
 
 const STAGE_TEXT: Record<Stage, string> = {
@@ -61,7 +81,9 @@ export default function PhotoToLineArtModal({
   const preparedRef = useRef<PreparedPhoto | null>(null);
   const inkRef = useRef<Uint8Array | null>(null);
   const erasedRef = useRef<Uint8Array | null>(null);
-  const undoRef = useRef<Uint8Array[]>([]);
+  /** Eraser strokes in ORIGINAL photo pixels, so they survive re-cropping
+   *  (switching the background on/off changes the crop). One entry per stroke. */
+  const strokesRef = useRef<{ x: number; y: number; r: number }[][]>([]);
   const drawingRef = useRef(false);
 
   const redraw = useCallback(() => {
@@ -100,9 +122,7 @@ export default function PhotoToLineArtModal({
       await new Promise((r) => setTimeout(r, 30));
       const prepared = preparePhoto(photo, keepBg ? null : maskRef.current);
       preparedRef.current = prepared;
-      erasedRef.current = new Uint8Array(prepared.w * prepared.h);
-      undoRef.current = [];
-      setUndoCount(0);
+      erasedRef.current = rasterizeStrokes(prepared, strokesRef.current);
       const gray = prepared.gray.slice();
       const mask = prepared.mask.slice();
       const ink = await runWorker(
@@ -195,13 +215,17 @@ export default function PhotoToLineArtModal({
     const cy = (clientY - rect.top) * (p.h / rect.height);
     // Brush size is in screen pixels, so it feels the same on phone and desktop.
     const r = (brush / 2) * sx;
-    const r2 = r * r;
-    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(p.h - 1, Math.ceil(cy + r)); y++) {
-      for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(p.w - 1, Math.ceil(cx + r)); x++) {
-        const dx = x - cx;
-        const dy = y - cy;
-        if (dx * dx + dy * dy <= r2) erased[y * p.w + x] = 1;
-      }
+    const stroke = strokesRef.current[strokesRef.current.length - 1];
+    const last = stroke?.[stroke.length - 1];
+    // Fill the gap since the previous point so fast swipes stay continuous.
+    const lx = last ? (last.x - p.x0) * p.scale : cx;
+    const ly = last ? (last.y - p.y0) * p.scale : cy;
+    const steps = Math.max(1, Math.ceil(Math.hypot(cx - lx, cy - ly) / Math.max(1, r / 2)));
+    for (let k = 1; k <= steps; k++) {
+      const x = lx + ((cx - lx) * k) / steps;
+      const y = ly + ((cy - ly) * k) / steps;
+      stamp(erased, p.w, p.h, x, y, r);
+      stroke?.push({ x: p.x0 + x / p.scale, y: p.y0 + y / p.scale, r: r / p.scale });
     }
     redraw();
   };
@@ -209,9 +233,8 @@ export default function PhotoToLineArtModal({
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!erasing || !erasedRef.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    undoRef.current.push(erasedRef.current.slice());
-    if (undoRef.current.length > 30) undoRef.current.shift();
-    setUndoCount(undoRef.current.length);
+    strokesRef.current.push([]);
+    setUndoCount(strokesRef.current.length);
     drawingRef.current = true;
     eraseAt(e.clientX, e.clientY);
   };
@@ -222,10 +245,11 @@ export default function PhotoToLineArtModal({
     drawingRef.current = false;
   };
   const onUndo = () => {
-    const prev = undoRef.current.pop();
-    if (!prev) return;
-    erasedRef.current = prev;
-    setUndoCount(undoRef.current.length);
+    const p = preparedRef.current;
+    if (!p || !strokesRef.current.length) return;
+    strokesRef.current.pop();
+    erasedRef.current = rasterizeStrokes(p, strokesRef.current);
+    setUndoCount(strokesRef.current.length);
     redraw();
   };
 

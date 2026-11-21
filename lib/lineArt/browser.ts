@@ -185,6 +185,11 @@ export interface PreparedPhoto {
   mask: Float32Array; // 0..1
   /** The cropped colour photo at working size, for the before/after toggle. */
   colorUrl: string;
+  /** Crop origin in photo pixels and working-px per photo-px, so marks made
+   *  on one crop (e.g. eraser strokes) can be mapped onto another. */
+  x0: number;
+  y0: number;
+  scale: number;
 }
 
 /** Mask (MODEL_SIZE²) → canvas of the given size, smoothly upscaled. */
@@ -276,7 +281,7 @@ export function preparePhoto(photo: HTMLCanvasElement, mask: Float32Array | null
     gray[i] = l * a + (1 - a);
     m[i] = a;
   }
-  return { w, h, gray, mask: m, colorUrl };
+  return { w, h, gray, mask: m, colorUrl, x0, y0, scale: s };
 }
 
 /** Ink plane (1 = black) minus erased pixels → black/white canvas. */

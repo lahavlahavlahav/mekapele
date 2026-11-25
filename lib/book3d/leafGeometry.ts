@@ -25,6 +25,8 @@ export interface LeafShapeParams {
   fullDepth: number; // the page's full depth (spine to fore-edge)
   /** MMF: corner folds running from each mark to the spine. CUT_AND_FOLD: full page, design bands folded inward. PAINT leaves aren't folded at all - use buildFlatLeafShape + buildPaintShapes instead. */
   mode?: FoldingMode;
+  /** CUT_AND_FOLD only: how deep (cm) the design bands are cut and folded in. Defaults to CUT_FOLD_RECESS_CM. */
+  recessCm?: number;
 }
 
 /**
@@ -33,6 +35,9 @@ export interface LeafShapeParams {
  * in an otherwise full fore-edge (the "Hope" reference look).
  */
 export const CUT_FOLD_RECESS_CM = 1.4;
+
+/** Upper bound for a user-chosen cut depth, as a fraction of the page depth (keeps the fore-edge from vanishing). */
+export const MAX_RECESS_FRACTION = 0.5;
 
 /** [start, end] pairs in "distance from top of page, cm" order, start < end. */
 function pairUp(marksCm: number[]): [number, number][] {
@@ -80,12 +85,14 @@ function bandsFromBottom(page: PageMeasurement, pageHeightCm: number): [number, 
  * its tab folded inward, leaving a recessed notch of CUT_FOLD_RECESS_CM.
  */
 export function buildLeafShape(page: PageMeasurement, params: LeafShapeParams): THREE.Shape {
-  const { pageHeightCm: H, fullDepth: D, mode = "MMF" } = params;
+  const { pageHeightCm: H, fullDepth: D, mode = "MMF", recessCm } = params;
   const shape = new THREE.Shape();
   const bands = page.isBlank ? [] : bandsFromBottom(page, H);
 
   if (mode === "CUT_AND_FOLD") {
-    const recess = Math.min(CUT_FOLD_RECESS_CM, D * 0.2);
+    const recess = recessCm != null
+      ? Math.min(Math.max(recessCm, 0.1), D * MAX_RECESS_FRACTION)
+      : Math.min(CUT_FOLD_RECESS_CM, D * 0.2);
     shape.moveTo(0, 0);
     shape.lineTo(D, 0);
     for (const [low, high] of bands) {

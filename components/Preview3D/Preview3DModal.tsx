@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import BookModel, { DEFAULT_COVER_COLOR } from "./BookModel";
+import { CUT_FOLD_RECESS_CM, MAX_RECESS_FRACTION } from "@/lib/book3d/leafGeometry";
 import type { FoldingPattern } from "@/lib/types";
 
 interface Preview3DModalProps {
@@ -22,6 +23,11 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
   // Only visible when no cover image is set - an uploaded cover always wins.
   const [coverColor, setCoverColor] = useState(DEFAULT_COVER_COLOR);
   const pageHeightCm = pattern.config.pageHeightCm;
+  // Cut & Fold: let the user play with how deep the cuts go (preview only - the
+  // pattern's marks don't depend on it). Page depth matches BookModel's fullDepth.
+  const isCutFold = pattern.config.mode === "CUT_AND_FOLD";
+  const maxCutDepth = Math.max(1, Math.floor(pageHeightCm * 0.62 * MAX_RECESS_FRACTION * 10) / 10);
+  const [cutDepthCm, setCutDepthCm] = useState(Math.min(CUT_FOLD_RECESS_CM, maxCutDepth));
   const radius = pageHeightCm * 1.4;
   const target: [number, number, number] = [0, 0, 0];
   const groundY = -pageHeightCm * 0.58;
@@ -98,6 +104,7 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
               coverImageUrl={coverImageUrl}
               openAngleDeg={openAngleDeg}
               coverColor={coverColor}
+              cutDepthCm={isCutFold ? cutDepthCm : undefined}
             />
           </Suspense>
 
@@ -130,7 +137,7 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
           />
         </div>
 
-        <p className="pointer-events-none absolute bottom-16 right-3 text-xs text-[var(--paper)] opacity-70">
+        <p className={`pointer-events-none absolute ${isCutFold ? "bottom-[7.5rem]" : "bottom-16"} right-3 text-xs text-[var(--paper)] opacity-70`}>
           גררו לסיבוב · גלגלת/צביטה לזום
         </p>
 
@@ -148,6 +155,27 @@ export default function Preview3DModal({ pattern, coverImageUrl, onClose }: Prev
               className="h-6 w-9 rounded border-0 bg-transparent cursor-pointer"
             />
           </label>
+        )}
+
+        {/* Cut & Fold depth control - preview only, shown just for that technique. */}
+        {isCutFold && (
+          <div
+            className="absolute bottom-[4.25rem] left-1/2 -translate-x-1/2 flex items-center gap-3 px-3 py-2 rounded-lg"
+            style={{ background: "rgba(29,36,51,0.7)" }}
+          >
+            <span className="text-xs text-[var(--paper)] whitespace-nowrap">עומק הגזירה</span>
+            <input
+              type="range"
+              min={0.5}
+              max={maxCutDepth}
+              step={0.1}
+              value={cutDepthCm}
+              onChange={(e) => setCutDepthCm(Number(e.target.value))}
+              className="w-32 sm:w-40"
+              aria-label="עומק הגזירה בסנטימטרים"
+            />
+            <span className="text-xs text-[var(--paper)] tabular w-14 text-left">{cutDepthCm.toFixed(1)} ס״מ</span>
+          </div>
         )}
 
         {/* Opening-angle control: 0deg (closed) .. 180deg (flat open), default 90deg. */}

@@ -13,6 +13,8 @@ interface BookModelProps {
   openAngleDeg: number;
   /** Solid color for both covers when no cover image is set. */
   coverColor: string;
+  /** Cut & Fold only: preview cut depth in cm (undefined = default). */
+  cutDepthCm?: number;
 }
 
 // Original fixed design used MAX_ANGLE=1.35 rad (~77deg) leaf half-spread and
@@ -218,7 +220,7 @@ function orient(angle: number, pageHeightCm: number): { quaternion: THREE.Quater
   return { quaternion: dummy.quaternion.clone(), position: dummy.position.clone() };
 }
 
-export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverColor }: BookModelProps) {
+export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverColor, cutDepthCm }: BookModelProps) {
   const { config, pages } = pattern;
   const leafCount = pages.length;
   const pageHeightCm = config.pageHeightCm;
@@ -240,10 +242,10 @@ export default function BookModel({ pattern, coverImageUrl, openAngleDeg, coverC
       pages.map((page) => {
         const shape = isPaint
           ? buildFlatLeafShape(pageHeightCm, fullDepth)
-          : buildLeafShape(page, { pageHeightCm, fullDepth, mode: config.mode });
+          : buildLeafShape(page, { pageHeightCm, fullDepth, mode: config.mode, recessCm: cutDepthCm });
         return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
       }),
-    [pages, pageHeightCm, fullDepth, thickness, config.mode, isPaint]
+    [pages, pageHeightCm, fullDepth, thickness, config.mode, isPaint, cutDepthCm]
   );
 
   // Painted bands: a bit thicker than the leaf (centered on it) so the color

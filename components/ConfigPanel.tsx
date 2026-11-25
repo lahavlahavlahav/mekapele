@@ -301,12 +301,17 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
           />
         </label>
         {checkingPhoto && <p className="mt-2 text-sm text-[var(--ink-soft)]">בודקים את התמונה…</p>}
-        {originalPhoto && !lineArtSource && (
-          <p className="mt-3 text-sm">
-            <button type="button" className="underline" onClick={() => setLineArtSource(originalPhoto)}>
-              ✏️ לכוון שוב את ציור הקווים
-            </button>
-          </p>
+        {/* Edit again at any time: zoom/crop, line-art detail, eraser... Starts from
+            the original photo when we still have it, otherwise from the current image. */}
+        {file && !lineArtSource && (
+          <button
+            type="button"
+            onClick={() => setLineArtSource(originalPhoto ?? file)}
+            className="inline-block ms-2 px-4 py-2 rounded-lg font-semibold border"
+            style={{ borderColor: "var(--coral)", color: "var(--coral-deep)", background: "var(--paper)" }}
+          >
+            ✏️ עריכת התמונה
+          </button>
         )}
         {!previewUrl && (
           <p className="mt-3 text-xs text-[var(--ink-soft)]">
@@ -322,7 +327,11 @@ export default function ConfigPanel({ children }: { children?: ReactNode }) {
             setLineArtSource(null);
             acceptFile(f);
           }}
-          onUseOriginal={() => useOriginal(lineArtSource)}
+          onUseOriginal={(cropped) => {
+            if (!cropped) return useOriginal(lineArtSource);
+            setLineArtSource(null);
+            acceptFile(cropped);
+          }}
           onClose={() => setLineArtSource(null)}
         />
       )}

@@ -52,8 +52,8 @@ export default function PhotoToLineArtModal({
   file: File;
   /** The finished black/white drawing as a PNG file. */
   onUse: (f: File) => void;
-  /** Keep the uploaded image as-is (no conversion). */
-  onUseOriginal: () => void;
+  /** Keep the uploaded image as-is (no conversion) - or, if it was zoomed/cropped, the cropped part. */
+  onUseOriginal: (cropped?: File) => void;
   onClose: () => void;
 }) {
   const [stage, setStage] = useState<Stage>("decoding");
@@ -66,6 +66,15 @@ export default function PhotoToLineArtModal({
   const [fillTol, setFillTol] = useState(50);
   const [undoCount, setUndoCount] = useState(0);
   const [saving, setSaving] = useState(false);
+  // Zoom & crop: pick part of the photo (e.g. just the faces) before drawing.
+  const [cropOpen, setCropOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [center, setCenter] = useState({ x: 0.5, y: 0.5 });
+  const [isCropped, setIsCropped] = useState(false);
+  const [fullUrl, setFullUrl] = useState<string | null>(null);
+  const fullPhotoRef = useRef<HTMLCanvasElement | null>(null);
+  const cropDrag = useRef<{ x: number; y: number; cx: number; cy: number } | null>(null);
+  const cropBoxRef = useRef<HTMLDivElement>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -191,6 +200,7 @@ export default function PhotoToLineArtModal({
         const photo = await decodePhoto(file);
         if (cancelled) return;
         photoRef.current = photo;
+        fullPhotoRef.current = photo;
         setStage("background");
         try {
           maskRef.current = await removeBackground(photo);
@@ -246,6 +256,86 @@ export default function PhotoToLineArtModal({
       setError(e instanceof Error ? e.message : "משהו השתבש.");
       setStage("error");
     });
+  };
+
+  // --- zoom & crop -------------------------------------------------------------
+  const MAX_ZOOM = 5;
+  /** Keep the view inside the photo: the visible window is 1/zoom wide. */
+  const clampCenter = (c: { x: number; y: number }, z: number) => {
+    const h = 0.5 / z;
+    return { x: Math.min(1 - h, Math.max(h, c.x)), y: Math.min(1 - h, Math.max(h, c.y)) };
+  };
+  const setZoomClamped = (z: number) => {
+    const nz = Math.min(MAX_ZOOM, Math.max(1, Math.round(z * 100) / 100));
+    setZoom(nz);
+    setCenter((c) => clampCenter(c, nz));
+  };
+  const openCrop = () => {
+    const full = fullPhotoRef.current;
+    if (!full) return;
+    if (!fullUrl) setFullUrl(full.toDataURL("image/jpeg", 0.9));
+    setTool("none");
+    setShowOriginal(false);
+    setCropOpen(true);
+  };
+  const onCropPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    cropDrag.current = { x: e.clientX, y: e.clientY, cx: center.x, cy: center.y };
+  };
+  const onCropPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = cropDrag.current;
+    const box = cropBoxRef.current;
+    if (!d || !box) return;
+    const r = box.getBoundingClientRect();
+    // Dragging the photo right shows more of its left side.
+    setCenter(clampCenter({ x: d.cx - (e.clientX - d.x) / (r.width * zoom), y: d.cy - (e.clientY - d.y) / (r.height * zoom) }, zoom));
+  };
+  const onCropPointerUp = () => {
+    cropDrag.current = null;
+  };
+  const onCropWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    setZoomClamped(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+  };
+  /** Cut the chosen window out of the FULL photo and redraw from it. */
+  const applyCrop = async () => {
+    const full = fullPhotoRef.current;
+    if (!full) return;
+    setCropOpen(false);
+    const W = full.width;
+    const H = full.height;
+    const cw = Math.max(8, Math.round(W / zoom));
+    const ch = Math.max(8, Math.round(H / zoom));
+    const sx = Math.min(W - cw, Math.max(0, Math.round(center.x * W - cw / 2)));
+    const sy = Math.min(H - ch, Math.max(0, Math.round(center.y * H - ch / 2)));
+    let photo = full;
+    if (zoom > 1.001) {
+      photo = document.createElement("canvas");
+      photo.width = cw;
+      photo.height = ch;
+      photo.getContext("2d")!.drawImage(full, sx, sy, cw, ch, 0, 0, cw, ch);
+    }
+    setIsCropped(photo !== full);
+    // Edits were drawn on the old framing - start clean on the new one.
+    opsRef.current = [];
+    setUndoCount(0);
+    partsRef.current = null;
+    photoRef.current = photo;
+    try {
+      setStage("background");
+      let keep = keepBackground;
+      try {
+        maskRef.current = await removeBackground(photo);
+      } catch (e) {
+        console.warn("background removal failed", e);
+        maskRef.current = null;
+        keep = true;
+        setKeepBackground(true);
+      }
+      await compute(keep, detail);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "משהו השתבש.");
+      setStage("error");
+    }
   };
 
   // --- edit tools -------------------------------------------------------------
@@ -393,19 +483,121 @@ export default function PhotoToLineArtModal({
             onPointerCancel={onPointerUp}
             className="max-w-full h-auto"
             style={{
-              display: stage === "ready" && !showOriginal ? "block" : "none",
+              display: stage === "ready" && !showOriginal && !cropOpen ? "block" : "none",
               maxHeight: "58vh",
               touchAction: tool !== "none" ? "none" : "auto",
               cursor: tool === "none" ? "default" : tool === "fill" || tool === "fillLine" ? "cell" : "crosshair",
             }}
           />
-          {stage === "ready" && showOriginal && preparedRef.current && (
+          {stage === "ready" && cropOpen && fullUrl && fullPhotoRef.current && (
+            <div
+              ref={cropBoxRef}
+              onPointerDown={onCropPointerDown}
+              onPointerMove={onCropPointerMove}
+              onPointerUp={onCropPointerUp}
+              onPointerCancel={onCropPointerUp}
+              onWheel={onCropWheel}
+              className="relative overflow-hidden select-none"
+              style={{
+                aspectRatio: `${fullPhotoRef.current.width} / ${fullPhotoRef.current.height}`,
+                width: `min(100%, calc(58vh * ${fullPhotoRef.current.width / fullPhotoRef.current.height}))`,
+                touchAction: "none",
+                cursor: zoom > 1 ? "grab" : "default",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={fullUrl}
+                alt="התמונה המקורית"
+                draggable={false}
+                className="absolute max-w-none pointer-events-none"
+                style={{
+                  width: `${zoom * 100}%`,
+                  height: `${zoom * 100}%`,
+                  left: `${-(center.x * zoom - 0.5) * 100}%`,
+                  top: `${-(center.y * zoom - 0.5) * 100}%`,
+                }}
+              />
+            </div>
+          )}
+          {stage === "ready" && showOriginal && !cropOpen && preparedRef.current && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preparedRef.current.colorUrl} alt="התמונה המקורית" className="max-w-full h-auto" style={{ maxHeight: "58vh" }} />
           )}
         </div>
 
-        {stage === "ready" && (
+        {stage === "ready" && cropOpen && (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-[var(--ink-soft)]">
+              התקרבו עם המחוון (או גלגלת העכבר) וגררו את התמונה כדי לבחור את החלק שייכנס לספר, למשל רק את הפנים.
+            </p>
+            {/* RTL row: first child sits on the right, next to the slider's max end (dir=ltr). */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setZoomClamped(zoom * 1.25)}
+                disabled={zoom >= MAX_ZOOM}
+                aria-label="התקרבות"
+                className="w-10 h-10 rounded-lg border text-lg font-semibold disabled:opacity-40"
+                style={{ borderColor: "var(--line)" }}
+              >
+                +
+              </button>
+              <input
+                type="range"
+                min={1}
+                max={MAX_ZOOM}
+                step={0.05}
+                value={zoom}
+                onChange={(e) => setZoomClamped(parseFloat(e.target.value))}
+                className="flex-1"
+                dir="ltr"
+                aria-label="התקרבות"
+              />
+              <button
+                onClick={() => setZoomClamped(zoom / 1.25)}
+                disabled={zoom <= 1}
+                aria-label="הרחקה"
+                className="w-10 h-10 rounded-lg border text-lg font-semibold disabled:opacity-40"
+                style={{ borderColor: "var(--line)" }}
+              >
+                −
+              </button>
+            </div>
+            {undoCount > 0 && (
+              <p className="text-xs" style={{ color: "var(--coral-deep)" }}>
+                שימו לב: אחרי ההתקרבות הציור יתחיל מחדש, והמחיקות והמילויים שעשיתם יתבטלו.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={applyCrop}
+                className="px-4 py-2 rounded-lg font-semibold text-white text-sm"
+                style={{ background: "var(--coral)" }}
+              >
+                ✓ אישור
+              </button>
+              <button
+                onClick={() => {
+                  setZoom(1);
+                  setCenter({ x: 0.5, y: 0.5 });
+                }}
+                className="px-3 py-2 rounded-lg border text-sm"
+                style={{ borderColor: "var(--line)" }}
+              >
+                איפוס לתמונה המלאה
+              </button>
+              <button
+                onClick={() => setCropOpen(false)}
+                className="px-3 py-2 rounded-lg border text-sm"
+                style={{ borderColor: "var(--line)" }}
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        )}
+
+        {stage === "ready" && !cropOpen && (
           <div className="mt-4 space-y-4">
             <label className="block">
               <span className="block text-sm font-semibold mb-1">כמות פרטים</span>
@@ -461,6 +653,13 @@ export default function PhotoToLineArtModal({
                 style={{ borderColor: "var(--line)" }}
               >
                 ↶ ביטול
+              </button>
+              <button
+                onClick={openCrop}
+                className="px-3 py-2 rounded-lg border text-sm font-semibold"
+                style={{ borderColor: "var(--line)", background: isCropped ? "rgba(226,97,74,0.12)" : "transparent" }}
+              >
+                🔍 התקרבות וחיתוך
               </button>
               <button
                 onClick={() => setShowOriginal((v) => !v)}
@@ -521,12 +720,26 @@ export default function PhotoToLineArtModal({
         )}
 
         <div className="mt-5 flex flex-col-reverse sm:flex-row gap-2 sm:justify-between">
-          <button onClick={onUseOriginal} className="px-4 py-2.5 rounded-lg border text-sm" style={{ borderColor: "var(--line)" }}>
-            להשתמש בתמונה כמו שהיא
+          <button
+            onClick={async () => {
+              const photo = photoRef.current;
+              if (!isCropped || !photo) return onUseOriginal();
+              const base = file.name.replace(/\.[^.]+$/, "") || "photo";
+              try {
+                onUseOriginal(await canvasToPngFile(photo, `${base}-crop.png`));
+              } catch {
+                onUseOriginal();
+              }
+            }}
+            disabled={cropOpen}
+            className="px-4 py-2.5 rounded-lg border text-sm disabled:opacity-50"
+            style={{ borderColor: "var(--line)" }}
+          >
+            {isCropped ? "להשתמש בתמונה החתוכה כמו שהיא" : "להשתמש בתמונה כמו שהיא"}
           </button>
           <button
             onClick={onContinue}
-            disabled={stage !== "ready" || saving}
+            disabled={stage !== "ready" || saving || cropOpen}
             className="px-5 py-2.5 rounded-lg font-semibold text-white disabled:opacity-50"
             style={{ background: "var(--coral)" }}
           >
